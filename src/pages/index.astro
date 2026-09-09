@@ -1,0 +1,98 @@
+---
+// ============================================================
+// index.astro — 首页
+// ============================================================
+// 结构（沿用 v2 概念稿的单页节奏）：
+// Hero（不器巨字 + 竖排 slogan）→ 无缝横滚 → 最新文章 → 宣言。
+// 页脚与全局骨架在 Base.astro。
+// ============================================================
+
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import PostRow from '../components/PostRow.astro';
+
+// 最新 5 篇（排除草稿），按发布日期倒序
+const allPosts = (await getCollection('posts', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+const latest = allPosts.slice(0, 5);
+const count = String(allPosts.length).padStart(3, '0');
+
+/** 横滚带内容：一份 group，页面上渲染两份实现无缝循环 */
+const marquee = ['愿被看见', '不被定义', 'UNVESSEL'];
+---
+
+<Base
+  title="unvessel 不器 — 愿被看见，不被定义"
+  description="不器的个人领地：写作、宣言与实验。墨渊 INK VOID。"
+>
+  <!-- ===== Hero：视口级巨字 ===== -->
+  <section class="hero" aria-label="首屏">
+    <!-- 四角十字标：制图基准点 -->
+    <i class="cross cross--tl" aria-hidden="true">+</i>
+    <i class="cross cross--tr" aria-hidden="true">+</i>
+    <i class="cross cross--bl" aria-hidden="true">+</i>
+    <i class="cross cross--br" aria-hidden="true">+</i>
+
+    <p class="hero__kicker" data-rv style="--d:.05s">
+      <span class="kdot" aria-hidden="true"></span>
+      A PERSONAL VOID — SINCE 2026
+    </p>
+
+    <h1 class="hero__title" aria-label="不器">
+      <span class="g" data-rv style="--d:.10s"><span class="gi">不</span></span>
+      <span class="g g--hollow" data-rv style="--d:.22s"><span class="gi">器</span></span>
+    </h1>
+
+    <!-- 竖排 slogan：「不被定义」被朱砂竖线划掉 -->
+    <p class="hero__slogan" data-rv style="--d:.40s">
+      <span class="vtext">愿被看见</span>
+      <span class="vtext vtext--strike">不被定义</span>
+    </p>
+
+    <div class="hero__meta" data-rv style="--d:.55s">
+      <span>君子不器</span>
+      <span>INK VOID / 墨渊</span>
+      <span>EST. 2026</span>
+    </div>
+  </section>
+
+  <!-- ===== 无缝横滚带 ===== -->
+  <section class="marquee" aria-hidden="true">
+    <div class="marquee__track">
+      {[0, 1].map(() => (
+        <div class="marquee__group">
+          <span class="mq">{marquee[0]}</span>
+          <span class="mq-sep"></span>
+          <span class="mq mq--accent">{marquee[1]}</span>
+          <span class="mq-sep"></span>
+          <span class="mq mq--hollow">{marquee[2]}</span>
+          <span class="mq-sep"></span>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- ===== 最新文章：签名交互（悬停朱砂反白） ===== -->
+  <section class="works" aria-labelledby="works-label">
+    <div class="sec-head">
+      <p class="sec-head__label" id="works-label">LATEST FILES<span>最新文章</span></p>
+      <a class="sec-head__count" href="/posts/">/{count} — 全部文章 →</a>
+    </div>
+    <ol class="works__list">
+      {latest.map((post, i) => <PostRow post={post} idx={allPosts.length - i} />)}
+    </ol>
+  </section>
+
+  <!-- ===== 宣言 ===== -->
+  <section class="manifesto" aria-labelledby="manifesto-label">
+    <p class="manifesto__label" id="manifesto-label" data-rv>MANIFESTO<span>宣言</span></p>
+    <p class="manifesto__l1" data-rv style="--d:.05s">
+      君子<span class="hollow">不器</span>
+    </p>
+    <p class="manifesto__l2" data-rv style="--d:.15s">《周易·系辞上》——形而上者谓之道，形而下者谓之器</p>
+    <p class="manifesto__l3" data-rv style="--d:.25s">
+      愿被看见，<em>不被定义</em>。
+    </p>
+  </section>
+</Base>

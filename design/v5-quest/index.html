@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNVESSEL QUEST 不器冒险 /// 16-BIT</title>
+  <meta name="description" content="unvessel 不器 —— 愿被看见，不被定义。16-bit 炫彩像素冒险风格个人博客概念稿。">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       v5「不器 QUEST」· 炫彩像素 RPG 风
+       谱系：16-bit 游戏机时代 × CRT 荧光屏 × 彩虹调色板
+       与前四稿的关系（第五方向）：
+         v1 文艺纸墨 → v2 暗黑巨字 → v3 暖白黏土 3D →
+         v4 三色印刷像素（静态印刷品）→
+         v5 活体游戏像素（全彩 / 会动 / 会呼吸 / 有生命条）
+       核心隐喻：博客 = 一款正在进行的 RPG ——
+         主角「不器」是未定形果冻方块（jelly cube），
+         文章是关卡，好奇心是攻击力，"不被定义"是无限防御。
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- Web 字体（fonts.loli.net 镜像）：
+       Press Start 2P — 8-bit 巨字（彩虹逐字变色）
+       VT323           — 终端读数（HUD 数值）
+       Noto Sans SC    — 中文（游戏对话框正文；中文无像素字体，用黑体代替） -->
+  <link rel="preconnect" href="https://fonts.loli.net">
+  <link rel="preconnect" href="https://gstatic.loli.net" crossorigin>
+  <link href="https://fonts.loli.net/css2?family=Press+Start+2P&family=VT323&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+  <!-- ═══ 0. 底层世界：彩色星空 canvas（多层视差 + RGB 星云） ═══ -->
+  <canvas id="sky" aria-hidden="true"></canvas>
+
+  <!-- ═══ 0.5 CRT 电视机层：扫描线 + 荧光微闪（装饰，禁交互） ═══ -->
+  <div class="crt" aria-hidden="true"></div>
+
+  <!-- ═══ 1. HUD 状态栏：血条 / 魔力 / 金币 —— 博客的游戏化仪表 ═══ -->
+  <header class="hud">
+    <div class="hud-id">
+      <canvas id="jelly" width="28" height="28" class="hud-avatar" aria-label="主角：未定形果冻方块"></canvas>
+      <div class="hud-name">
+        <b>UNVESSEL</b>
+        <i>不器 · LV.<span id="lv">9</span></i>
+      </div>
+    </div>
+
+    <div class="hud-bars">
+      <!-- HP = 存稿；MP = 灵感。条色各自渐变，充能动画 -->
+      <div class="hud-bar">
+        <span class="tag">HP</span>
+        <div class="bar hp"><i style="--w:87%"></i></div>
+        <span class="num">87/99</span>
+      </div>
+      <div class="hud-bar">
+        <span class="tag">MP</span>
+        <div class="bar mp"><i style="--w:96%"></i></div>
+        <span class="num">96/99</span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <span class="coin" aria-hidden="true">◆</span>
+      <span class="coin-num" id="coin">9999</span>
+      <span class="hud-note">GIL = 好奇心储备</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ═══ 2. 标题画面（TITLE SCREEN）：彩虹巨字 + 主角 + 对话框 ═══ -->
+    <section class="title" id="top">
+
+      <!-- 主角精灵：果冻方块 2 帧呼吸（未定形的本体） -->
+      <canvas id="hero-jelly" width="96" height="96" class="hero-jelly" aria-label="未定形果冻方块主角"></canvas>
+
+      <!-- 彩虹巨字：每个字母一枚色，级联 hue 流动 -->
+      <h1 class="display" aria-label="UNVESSEL">
+        <span class="rainbow">UNVESSEL</span>
+      </h1>
+      <p class="display-sub" aria-hidden="true">NOT A VESSEL /// 16-BIT BLOG</p>
+
+      <!-- 对话框：打字机逐字 + ▼ 续行指示 -->
+      <div class="dialog" data-rv>
+        <div class="dialog-text">
+          <span id="typewriter"></span><span class="caret" aria-hidden="true">_</span>
+        </div>
+        <div class="dialog-next" aria-hidden="true">▼</div>
+      </div>
+
+      <a class="start" href="#levels">
+        <span class="tri" aria-hidden="true">▶</span> PRESS START
+      </a>
+    </section>
+
+    <!-- ═══ 3. LEVEL SELECT：文章 = 关卡，每关一个专属色 ═══ -->
+    <section id="levels" class="levels">
+      <header class="sec-head" data-rv>
+        <h2>/// LEVEL <span class="c-rainbow">SELECT</span></h2>
+        <p class="sec-sub">关卡选择 — 文章已通关 3 幕</p>
+      </header>
+
+      <div class="level-grid">
+        <!-- 关卡 1：青色 · 火箭 -->
+        <article class="level" style="--clr:#2ecbff" data-rv>
+          <div class="lv-head"><span>STAGE 01</span><span class="stars">★☆☆</span></div>
+          <canvas class="sprite" width="16" height="16" data-sprite="rocket" aria-label="火箭像素图"></canvas>
+          <h3>HANDCRAFT ENGINE</h3>
+          <p class="lv-zh">手写引擎</p>
+          <p class="lv-desc">从零手写的静态站生成管线。每个 token 都出自自己之手 —— 像丰田把 4A-GE 调到 8000 转。</p>
+          <div class="lv-foot"><span class="clr">COLOR: SKYBLUE</span><b>CLEARED ✓</b></div>
+        </article>
+
+        <!-- 关卡 2：粉色 · 星球 -->
+        <article class="level" style="--clr:#ff2e88" data-rv data-d="1">
+          <div class="lv-head"><span>STAGE 02</span><span class="stars">★★☆</span></div>
+          <canvas class="sprite" width="16" height="16" data-sprite="planet" aria-label="星球像素图"></canvas>
+          <h3>INK VOID</h3>
+          <p class="lv-zh">墨渊</p>
+          <p class="lv-desc">纯黑巨字流体实验稿。视口即宣纸，字重即墨量 —— 已被收藏进档案库的画廊方案。</p>
+          <div class="lv-foot"><span class="clr">COLOR: NEON PINK</span><b>ARCHIVED ✓</b></div>
+        </article>
+
+        <!-- 关卡 3：金色 · 宝箱 -->
+        <article class="level" style="--clr:#ffd23f" data-rv data-d="2">
+          <div class="lv-head"><span>STAGE 03</span><span class="stars">★★★</span></div>
+          <canvas class="sprite" width="16" height="16" data-sprite="chest" aria-label="宝箱像素图"></canvas>
+          <h3>CLAYVERSE</h3>
+          <p class="lv-zh">未器之城</p>
+          <p class="lv-desc">暖白黏土世界与克莱因蓝器物群。Three.js 漂浮几何 —— 一版开进游乐园的方案。</p>
+          <div class="lv-foot"><span class="clr">COLOR: GOLD</span><b>ARCHIVED ✓</b></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ═══ 4. NPC 对话：宣言 ── 君子不器（像素头像 + 对话框） ═══ -->
+    <section id="manifesto" class="npc">
+      <div class="npc-box" data-rv>
+        <canvas id="npc-avatar" width="48" height="48" class="npc-avatar" aria-label="NPC 头像"></canvas>
+        <div class="npc-dialog">
+          <p class="npc-name">村口老者 /// THE SAGE</p>
+          <p class="npc-line">「器为用而生，不器为自己而生。<br>
+            世人都在把自己铸成容器 —— 只有你，还是果冻。」</p>
+          <p class="npc-line mono">"The vessel is born for its use. The unvessel is born to be undefined."</p>
+          <p class="npc-tip">▲ 愿被看见，不被定义 ▲</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 5. STATUS SCREEN：RPG 角色属性表 ── 数据即反转 ═══ -->
+    <section class="status">
+      <div class="status-card" data-rv>
+        <div class="st-head">
+          <h2>STATUS SCREEN</h2>
+          <span class="mono">UNVESSEL / 不器</span>
+        </div>
+        <table class="st-table mono">
+          <tbody>
+            <tr><th>LV</th><td>9 → ∞（永不定型）</td></tr>
+            <tr><th>EXP</th><td>2026 年起持续累积</td></tr>
+            <tr><th class="c1">ATTACK</th><td>好奇心 × 96</td></tr>
+            <tr><th class="c2">DEFENSE</th><td>不被定义 ∞</td></tr>
+            <tr><th class="c3">SPEED</th><td>手写 × 97（无模板加成）</td></tr>
+            <tr><th class="c4">ITEM</th><td>愿被看见 ★</td></tr>
+            <tr><th class="c5">GIL</th><td>9999（好奇心储备）</td></tr>
+            <tr><th class="c6">NEXT</th><td class="blink">？？？？？？ —— 下一关未定义</td></tr>
+          </tbody>
+        </table>
+        <div class="st-foot mono">SAVE POINT: <b>HERE</b> /// 记录点已解锁 —— 点下关注即可存档</div>
+      </div>
+    </section>
+
+    <!-- ═══ 6. FOOTER：像素徽章 + PRESS START 复读 ═══ -->
+    <footer class="foot">
+      <div class="badges">
+        <!-- 88×31 复古像素徽章：初代 web 的交换链接仪式 -->
+        <span class="badge" aria-label="UNVESSEL 88x31 徽章">
+          <i class="badge-bar"></i>
+          <b>UNVESSEL</b>
+          <i class="badge-bar"></i>
+        </span>
+        <span class="badge badge-alt" aria-label="NOT A VESSEL 徽章">
+          <i class="badge-bar"></i>
+          <b>NOT A VESSEL</b>
+          <i class="badge-bar"></i>
+        </span>
+      </div>
+      <p class="foot-line mono">© 2026 不器 QUEST /// CONTINUE? 9… 8… 7…</p>
+      <a class="foot-top mono" href="#top">BACK TO TITLE ↑</a>
+    </footer>
+
+  </main>
+
+  <noscript>
+    <div class="no-js-note mono">JS 已拔卡 —— 游戏暂停，但存档还在。</div>
+  </noscript>
+
+  <script src="assets/main.js"></script>
+</body>
+</html>

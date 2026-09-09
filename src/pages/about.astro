@@ -1,0 +1,74 @@
+---
+// ============================================================
+// about.astro — 关于 / 宣言页
+// ============================================================
+// 页头巨字「宣言」+ 扩展版宣言正文 + 联络。
+// 这是站点气质的「立场说明书」。
+// ============================================================
+
+import Base from '../layouts/Base.astro';
+
+/** 联络（与 Base.astro 保持一致） */
+const EMAIL = 'hi@unvessel.me';
+---
+
+<Base title="宣言 — unvessel 不器" description="君子不器。愿被看见，不被定义。">
+  <!-- ===== 页头 ===== -->
+  <header class="page-head">
+    <p class="page-head__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      MANIFESTO — 宣言
+    </p>
+    <h1 class="page-head__title" aria-label="宣言">
+      <span data-rv style="--d:.08s">宣</span><span class="hollow" data-rv style="--d:.18s">言</span>
+    </h1>
+    <p class="page-head__meta" data-rv style="--d:.28s">
+      <span>形而上者谓之道</span>
+      <span>INK VOID / 墨渊</span>
+    </p>
+  </header>
+
+  <!-- ===== 宣言正文 ===== -->
+  <section class="prose-wrap" style="padding-top: 0;">
+    <div class="prose prose--wide">
+      <p class="manifesto__l1" style="font-size: clamp(40px, 7vw, 96px); margin-bottom: 0.6em;">
+        君子<span class="hollow">不器</span>
+      </p>
+      <p class="manifesto__l2" style="margin: 0 0 2em;">《周易·系辞上》——形而上者谓之道，形而下者谓之器</p>
+
+      <p>
+        <strong>「器」是被形状规定的东西</strong>——杯子只能盛水，琴只能发声。
+        把一个人叫作「器」，就是默认他该待在某个格子里，直到磨损为止。
+      </p>
+      <p>
+        unvessel 的字面意思是「非容器」：拒绝被装满，拒绝被定型。
+        中文名取自两千年前那句抵抗——君子不器。
+      </p>
+
+      <h2>信条</h2>
+      <ul>
+        <li>愿被看见——所以持续书写，留下可见的痕迹；</li>
+        <li>不被定义——所以拒绝一切现成的模板与标签；</li>
+        <li>工具为思想让路——技术是墨，不是枷锁。</li>
+      </ul>
+
+      <h2>这里有什么</h2>
+      <p>
+        写作（技术与随笔）、实验（交互与视觉的边界）、宣言（不定期的立场重申）。
+        本站由 Astro 构建，纯静态输出，为 AI 协作留有完整运营接口——
+        也许你读到的某一篇，正是一次人机协作的痕迹。
+      </p>
+
+      <h2>联络</h2>
+      <p>
+        邮件：<a href={`mailto:${EMAIL}`}>{EMAIL}</a>。
+        不闲聊，但认真回复每一封认真的信。
+      </p>
+
+      <hr />
+      <p style="color: var(--smoke); font-size: 0.9em;">
+        愿被看见，<em style="font-family: var(--font-serif); font-style: normal; font-weight: 900; color: var(--accent);">不被定义</em>。
+      </p>
+    </div>
+  </section>
+</Base>

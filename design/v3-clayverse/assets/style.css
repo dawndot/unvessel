@@ -1,0 +1,448 @@
+/* ============================================================
+   不器 unvessel — v3「未器之城 CLAYVERSE」设计系统
+   ------------------------------------------------------------
+   与 v2「墨渊」的反转清单：
+     暗底 → 暖白雾底        朱砂红 → 克莱因蓝
+     全直角 → 大圆角        无投影 → 柔和阴影
+     视口巨字 → 轻盈几何字   黑锐发丝线 → 白瓷浮卡
+   设计立场：黏土世界 —— 还没定型的东西是软的、亮的、可玩的
+   ============================================================ */
+
+/* ---------- 01 · 设计令牌 ---------- */
+:root {
+  /* 底色与文字：暖白纸雾 + 近黑墨字 */
+  --paper: #f4f1ec;          /* 世界底色（雾色） */
+  --paper-2: #ffffff;        /* 卡片白瓷 */
+  --ink: #17171a;            /* 主文字 */
+  --ink-2: #6f6c66;          /* 次级文字（暖灰） */
+
+  /* 克莱因蓝：全站唯一强调色（对应 v2 的朱砂地位） */
+  --klein: #2242ff;
+  --klein-soft: rgba(34, 66, 255, .08);
+
+  /* 结构线与阴影：v3 允许柔影（v2 禁用） */
+  --line: rgba(23, 23, 26, .12);
+  --shadow: 0 18px 50px -18px rgba(23, 23, 26, .18);
+  --shadow-hover: 0 28px 70px -20px rgba(23, 23, 26, .26);
+
+  /* 字体族：几何无衬线 + HUD 等宽 + 中文黑体 */
+  --f-latin: "Space Grotesk", "Noto Sans SC", sans-serif;
+  --f-mono: "Space Mono", "JetBrains Mono", monospace;
+  --f-zh: "Noto Sans SC", sans-serif;
+
+  /* 圆角体系：小件全圆角 pill，卡片大圆角 */
+  --r-pill: 999px;
+  --r-card: 22px;
+
+  /* 通用缓动：轻快回弹感（v2 的 --ease-out 换成带一点 overshoot 的弹簧） */
+  --ease-spring: cubic-bezier(.22, 1.2, .36, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+}
+
+/* ---------- 02 · 基础重置 ---------- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--f-zh);
+  color: var(--ink);
+  background: var(--paper);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+::selection { background: var(--klein); color: #fff; }
+
+/* ---------- 03 · 3D 画布层 ---------- */
+/* 固定在最底层：DOM 内容滚动，相机随滚动在场景中前进 */
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+}
+
+/* WebGL 不可用时：画布隐藏，底色换成柔和渐变示意"雾" */
+body.no-3d #scene { display: none; }
+body.no-3d {
+  background:
+    radial-gradient(120% 90% at 70% 20%, #ffffff 0%, var(--paper) 55%, #e9e4dc 100%);
+}
+.no3d-note {
+  position: fixed;
+  left: 50%; bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 40;
+  padding: 8px 16px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+
+/* ---------- 04 · 顶栏 ---------- */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px clamp(20px, 4vw, 56px);
+  /* 顶栏不做底色：让 3D 世界从字缝间透出来（悬浮 HUD 感） */
+  pointer-events: none;
+}
+.topbar a, .topbar .status { pointer-events: auto; }
+
+.brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 700;
+}
+/* 品牌圆点：克莱因蓝实心圆（v2 的朱砂方点反转） */
+.brand__dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--klein);
+  align-self: center;
+}
+.brand__zh { font-size: 17px; letter-spacing: .08em; }
+.brand__en {
+  font-family: var(--f-latin);
+  font-size: 11px;
+  letter-spacing: .28em;
+  color: var(--ink-2);
+}
+
+.nav { display: flex; gap: 6px; }
+.nav__link {
+  padding: 8px 16px;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .55);
+  backdrop-filter: blur(8px);
+  transition: all .3s var(--ease-out);
+}
+.nav__link i {
+  font-family: var(--f-mono);
+  font-style: normal;
+  font-size: 10px;
+  color: var(--klein);
+  margin-right: 6px;
+}
+.nav__link:hover {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+/* 右上角构建状态：呼吸的蓝点 + 等宽标签（HUD 感） */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--ink-2);
+}
+.status__pulse {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--klein);
+  animation: pulse 2.2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 66, 255, .35); }
+  50%      { box-shadow: 0 0 0 7px rgba(34, 66, 255, 0); }
+}
+
+/* ---------- 05 · 内容层总布局 ---------- */
+/* z-index 层级：canvas(0) → main(10) → topbar(30) → no3d 提示(40) */
+main {
+  position: relative;
+  z-index: 10;
+}
+
+/* 章节小标签 pill：v3 的章节编号体系 */
+.sec-head__pill {
+  display: inline-block;
+  padding: 7px 16px;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: .22em;
+  color: var(--klein);
+  background: var(--klein-soft);
+  border-radius: var(--r-pill);
+}
+
+/* ---------- 06 · HERO ---------- */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 clamp(20px, 6vw, 96px);
+  max-width: 1080px;
+}
+
+.hero__kicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: .08em;
+  color: var(--ink-2);
+  margin-bottom: 28px;
+}
+.hero__kicker .tick {
+  width: 28px; height: 2px;
+  background: var(--klein);
+}
+
+.hero__title { font-weight: 700; }
+
+/* 拉丁大字：几何无衬线，字距微收（不到 v2 的视口巨字量级） */
+.hero__latin {
+  display: block;
+  font-family: var(--f-latin);
+  font-size: clamp(3.4rem, 9.5vw, 8.2rem);
+  line-height: .96;
+  letter-spacing: -.02em;
+  /* 描边镂空与实色混排的余地在 v2 已用过，v3 改用"末字母蓝点"记号：
+     用伪元素在词尾挂一个克莱因蓝圆点，呼应品牌圆点 */
+  position: relative;
+  width: fit-content;
+}
+.hero__latin::after {
+  content: "";
+  position: absolute;
+  right: -0.18em; bottom: .12em;
+  width: .14em; height: .14em;
+  border-radius: 50%;
+  background: var(--klein);
+}
+
+/* 中文行：中等字号 + 蓝色高亮块（em 即"点睛"字） */
+.hero__zh {
+  display: block;
+  margin-top: 22px;
+  font-size: clamp(1.1rem, 2.2vw, 1.6rem);
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--ink);
+}
+.hero__zh em {
+  font-style: normal;
+  font-weight: 700;
+  color: #fff;
+  background: var(--klein);
+  padding: .06em .3em .1em;
+  border-radius: 10px;
+  margin-right: .15em;
+}
+
+.hero__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin-top: 48px;
+  padding: 10px 20px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .55);
+  backdrop-filter: blur(8px);
+}
+.hero__hint-arrow {
+  animation: bob 1.6s infinite var(--ease-out);
+  color: var(--klein);
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(-2px); }
+  50%      { transform: translateY(3px); }
+}
+
+/* ---------- 07 · WORKS：白瓷卡片 ---------- */
+.works {
+  padding: 18vh clamp(20px, 6vw, 96px) 10vh;
+  max-width: 1080px;
+}
+
+.sec-head { margin-bottom: 40px; }
+.sec-head h2 {
+  margin-top: 18px;
+  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.cards { display: flex; flex-direction: column; gap: 18px; }
+
+/* 白瓷卡：圆角 + 柔影 + hover 抬升（v2 整行朱砂反黑的镜像反转） */
+.card {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 26px 30px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  transition: transform .45s var(--ease-spring), box-shadow .45s var(--ease-out);
+}
+.card:hover {
+  transform: translateY(-6px) scale(1.012);
+  box-shadow: var(--shadow-hover);
+}
+
+.card__no {
+  font-family: var(--f-latin);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--klein);
+  letter-spacing: .1em;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  flex: none;
+}
+
+.card__body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card__title {
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 700;
+  transition: color .3s var(--ease-out);
+}
+.card:hover .card__title { color: var(--klein); }
+.card__meta {
+  font-size: 13px;
+  color: var(--ink-2);
+  letter-spacing: .02em;
+}
+
+.card__arrow {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--f-latin);
+  font-size: 22px;
+  color: var(--ink-2);
+  transition: transform .45s var(--ease-spring), color .3s;
+}
+.card:hover .card__arrow {
+  transform: translateX(8px);
+  color: var(--klein);
+}
+
+/* ---------- 08 · MANIFESTO 宣言 ---------- */
+.manifesto {
+  min-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 30px;
+  padding: 10vh clamp(20px, 6vw, 96px);
+}
+
+.manifesto__quote {
+  font-size: clamp(2.4rem, 6vw, 4.6rem);
+  font-weight: 700;
+  letter-spacing: .06em;
+  line-height: 1.25;
+}
+.manifesto__quote cite {
+  display: block;
+  margin-top: 14px;
+  font-style: normal;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: .2em;
+  color: var(--ink-2);
+}
+
+.manifesto__text {
+  max-width: 34em;
+  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  line-height: 2.1;
+  color: var(--ink-2);
+}
+/* 蓝色下划线高亮：黏土词点睛（v2 用朱砂 em 衬线，v3 用蓝色 marker 笔触） */
+.manifesto__text em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--ink);
+  background: linear-gradient(transparent 62%, rgba(34, 66, 255, .22) 62%);
+}
+
+/* ---------- 09 · FOOTER ---------- */
+.footer {
+  padding: 0 clamp(20px, 6vw, 96px) 48px;
+}
+.footer__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-top: 36px;
+  border-top: 1px solid var(--line);
+}
+.footer__col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.footer__sig {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.7;
+}
+.footer__col a {
+  width: fit-content;
+  font-family: var(--f-latin);
+  transition: color .3s;
+}
+.footer__col a:hover { color: var(--klein); }
+.footer__col--right {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+}
+
+/* ---------- 10 · 滚动显现动画 ---------- */
+/* 约定：只动 opacity + transform（3D 世界在底层提供运动感，DOM 层克制） */
+[data-rv] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity .9s var(--ease-out) var(--d, 0s),
+    transform .9s var(--ease-out) var(--d, 0s);
+}
+[data-rv].is-in, body.is-live [data-rv] { opacity: 1; transform: none; }
+
+/* ---------- 11 · 响应式降级 ---------- */
+@media (max-width: 860px) {
+  .nav { display: none; }          /* 小屏隐藏中部导航（概念稿从简） */
+  .status { display: none; }
+  .card { gap: 16px; padding: 20px; }
+  .card__arrow { display: none; }
+}

@@ -1,0 +1,495 @@
+/* ═══════════════════════════════════════════════════════════════════
+   UNVESSEL v4「不器工房 ATELIER」设计系统
+   复古像素印刷 HUD 风 —— Riso 双色印刷 × 街机仪表 × 头文字D 海报
+
+   与前三稿的反转清单：
+     v1 宣纸米白文艺   → v4 是做旧暖黑（黑纸 + 泛黄斑驳，不是纯黑画廊）
+     v2 极简空旷巨字   → v4 是高密度模块网格（信息像海报一样塞满）
+     v3 暖白大圆角柔影 → v4 全直角 + 细描边 + 零投影（只有印刷颗粒）
+     三稿的现代字体系  → v4 像素字（Press Start 2P）× 终端字（VT323）
+                         × 中文衬线（印刷衬注，不是正文黑体）
+   三色 Riso 印刷：暖黑 #17140f / 锈红 #d24a32 / 米黄 #e8dcc0
+   动效哲学：静态印刷品被"通电" —— 所有缓动一律 steps() 跳帧，
+   读数条像老式仪表一样一格一格充能，显现像 CRT 截图一样逐块刷新。
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────── 1. 令牌 ─────────────────────────── */
+:root {
+  /* 三色印刷油墨 */
+  --paper:      #17140f;                    /* 暖黑纸底（带一点焦糖暗） */
+  --rust:       #d24a32;                    /* 锈红油墨：主强调，大面积使用 */
+  --rust-deep:  #9c3422;                    /* 深锈红：hover / 按压态 */
+  --cream:      #e8dcc0;                    /* 米黄油墨：正文与描边 */
+  --cream-dim:  rgba(232, 220, 192, .55);   /* 米黄减淡：次要文字 */
+  --line:       rgba(232, 220, 192, .30);   /* 卡片细描边 */
+  --line-soft:  rgba(232, 220, 192, .16);   /* 更弱的分隔线 */
+  --dim:        #8f8672;                    /* 暗淡灰米：说明文字 */
+
+  /* 字体四件套 */
+  --px:    'Press Start 2P', monospace;                 /* 8-bit 像素巨字 */
+  --term:  'VT323', 'Noto Sans SC', monospace;          /* 终端点阵读数 */
+  --serif: 'Noto Serif SC', serif;                      /* 中文印刷衬线 */
+  --sans:  'Noto Sans SC', sans-serif;                  /* 中文正文 */
+
+  /* 像素缓动：不用弹性曲线，一切交给 steps() 跳帧 */
+  --step-slow: steps(9);
+  --step-fast: steps(4);
+}
+
+/* ─────────────────────── 2. Reset 与基底 ─────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--paper);
+  color: var(--cream);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-x: hidden;
+  /* 像素渲染：让米黄描边、像素字保持锐利 */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 做旧斑驳层：泛黄的油渍与边缘暗角（比 grain 更低频的大尺度做旧） */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;                /* 位于内容(10)之下、纸底(0)之上 */
+  pointer-events: none;
+  background:
+    /* 左上泛黄油斑 */
+    radial-gradient(ellipse 62% 42% at 14% 6%,  rgba(216, 172, 98, .075), transparent 62%),
+    /* 中部零星黄点 */
+    radial-gradient(ellipse 40% 30% at 78% 34%, rgba(216, 172, 98, .05),  transparent 60%),
+    /* 底部焦糖暗渍 */
+    radial-gradient(ellipse 80% 46% at 50% 104%, rgba(122, 82, 40, .10), transparent 62%),
+    /* 边缘暗角：旧海报四边微微发黑 */
+    radial-gradient(ellipse 140% 110% at 50% 50%, transparent 56%, rgba(0, 0, 0, .52) 100%);
+}
+
+.mono { font-family: var(--term); letter-spacing: .06em; }
+
+::selection { background: var(--rust); color: var(--paper); }
+
+/* 细滚动条：米黄轨道黑柄 */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb { background: #3a332a; border: 2px solid var(--paper); }
+::-webkit-scrollbar-thumb:hover { background: var(--rust); }
+
+/* ──────────────────── 3. 全局做旧噪点层 .grain ────────────────────
+   SVG feTurbulence 生成颗粒，overlay 混合融入印刷品；
+   fixed 全屏、不可交互、z 最高 —— 盖在一切之上模拟纸张颗粒 */
+.grain {
+  position: fixed;
+  inset: -20%;
+  z-index: 999;
+  pointer-events: none;
+  opacity: .34;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='7'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+}
+
+/* ─────────────────────────── 4. 顶栏 ─────────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 28px;
+  background: rgba(23, 20, 15, .88);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* 品牌：像素拼块 + 双行文字（英文粗 + 中文小衬注） */
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--cream); }
+
+/* 像素方块 logo：四格拼块，一格 rust 三格米黄，rust 格两帧闪烁 */
+.brand-mark {
+  width: 22px; height: 22px; flex: none;
+  background:
+    linear-gradient(var(--rust), var(--rust)) 0 0 / 10px 10px no-repeat,
+    linear-gradient(var(--cream), var(--cream)) 12px 0 / 10px 10px no-repeat,
+    linear-gradient(var(--cream), var(--cream)) 0 12px / 10px 10px no-repeat,
+    linear-gradient(var(--cream), var(--cream)) 12px 12px / 10px 10px no-repeat;
+  animation: mark-blink 1.6s steps(2) infinite;
+}
+@keyframes mark-blink { 50% { background-position: 0 0, 12px 0, 0 12px, 12px 12px; } }
+
+.brand-text { display: flex; flex-direction: column; line-height: 1.25; }
+.brand-text b { font-family: var(--term); font-size: 17px; letter-spacing: .12em; }
+.brand-text i { font-style: normal; font-size: 10px; color: var(--dim); letter-spacing: .18em; }
+
+/* 导航：≫ 前缀 + 等宽大写，hover 变 rust */
+.nav { display: flex; gap: 22px; }
+.nav a {
+  font-family: var(--term); font-size: 15px; letter-spacing: .14em;
+  color: var(--cream-dim); text-decoration: none; transition: color .15s var(--step-fast);
+}
+.nav a .arr { color: var(--rust); margin-right: 4px; }
+.nav a:hover { color: var(--rust); }
+
+/* 状态灯：rust 方点（像素方块不是圆点）两帧闪烁 */
+.top-status {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--term); font-size: 13px; letter-spacing: .12em; color: var(--dim);
+}
+.top-status .dot {
+  width: 8px; height: 8px; background: var(--rust);
+  animation: dot-blink 1.2s steps(2) infinite;
+}
+@keyframes dot-blink { 50% { opacity: .15; } }
+
+/* ─────────────────────────── 5. 布局基座 ─────────────────────────── */
+main { position: relative; z-index: 10; }
+
+section { max-width: 1200px; margin: 0 auto; padding: 0 28px; }
+
+/* ──────────────────────── 6. HERO 不对称网格 ──────────────────────── */
+.hero {
+  display: grid;
+  grid-template-columns: 330px 1fr;   /* 左窄右宽，复刻海报不对称 */
+  gap: 22px;
+  padding-top: 56px;
+  padding-bottom: 80px;
+  align-items: start;
+}
+.hero-l { display: grid; gap: 18px; }
+.hero-r { display: grid; gap: 18px; }
+
+/* ─────────────────── 7. 卡片通用：细描边全直角 + 十字角标 ─────────────────── */
+.card {
+  position: relative;
+  border: 1px solid var(--line);
+  background: rgba(232, 220, 192, .025);  /* 米黄 2.5% 的极浅印刷底 */
+  padding: 16px;
+}
+
+/* 左上 / 右下 角标十字：两段 linear-gradient 交叉成一枚小十字 */
+.card::before, .card::after {
+  content: '';
+  position: absolute;
+  width: 11px; height: 11px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--cream-dim), var(--cream-dim)) center / 1px 11px no-repeat,
+    linear-gradient(var(--cream-dim), var(--cream-dim)) center / 11px 1px no-repeat;
+}
+.card::before { top: -6px; left: -6px; }
+.card::after  { bottom: -6px; right: -6px; }
+
+/* 卡片头尾：mono 小标签行（UNGRADED GLOBE ——— 未定形仪） */
+.card-head, .card-foot {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-family: var(--term); font-size: 12px; letter-spacing: .14em;
+  color: var(--dim);
+}
+.card-head { border-bottom: 1px dashed var(--line-soft); padding-bottom: 10px; margin-bottom: 12px; }
+.card-head span:first-child { color: var(--cream-dim); }
+.card-foot { border-top: 1px dashed var(--line-soft); padding-top: 10px; margin-top: 12px; font-size: 11px; }
+
+/* ─────────────────────── 8. 线框球卡片 ─────────────────────── */
+.orb-card { padding-bottom: 12px; }
+#orb {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: grab;
+}
+#orb:active { cursor: grabbing; }
+
+/* ─────────────────────── 9. 宣言卡（No turbo 式） ─────────────────────── */
+.quote-card { background: var(--rust); border-color: var(--rust); color: var(--paper); }
+.quote-card::before, .quote-card::after {
+  background:
+    linear-gradient(var(--paper), var(--paper)) center / 1px 11px no-repeat,
+    linear-gradient(var(--paper), var(--paper)) center / 11px 1px no-repeat;
+}
+.quote-en {
+  font-family: var(--term);
+  font-size: 26px;
+  line-height: 1.32;
+  letter-spacing: .04em;
+}
+.quote-en em { font-style: normal; color: var(--paper); opacity: .72; }
+.quote-zh {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px dashed rgba(23, 20, 15, .4);
+  font-size: 13px; font-weight: 700; letter-spacing: .08em;
+}
+
+/* ─────────────────────── 10. 衬注卡（伝説は、） ─────────────────────── */
+.caption-card {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px;
+  font-size: 16px; color: var(--cream-dim);
+}
+.caption-card .zh { font-size: 12px; color: var(--dim); letter-spacing: .2em; }
+
+/* ─────────────────────── 11. 像素巨字区 ─────────────────────── */
+.display { display: grid; gap: 14px; margin: 8px 0 4px; }
+
+/* 行 1：实心锈红 UNVESSEL（对应 CYBER）+ 硬像素阴影 */
+.display-1 {
+  font-family: var(--px);
+  font-weight: 400;
+  font-size: clamp(26px, 6.2vw, 82px);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--rust);
+  text-shadow: 5px 5px 0 rgba(0, 0, 0, .55);
+}
+
+/* 行 2：描边米黄 NOT A VESSEL（对应 DRIVE 的空心描边） */
+.display-2 {
+  font-family: var(--px);
+  font-weight: 400;
+  font-size: clamp(15px, 3.6vw, 47px);
+  line-height: 1.2;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--cream);
+}
+
+/* ─────────────────────── 12. 条形码分隔 ─────────────────────── */
+.barcode {
+  display: flex; align-items: flex-end; gap: 14px;
+  color: var(--cream);
+}
+.barcode svg { width: min(560px, 62%); height: 22px; flex: none; }
+.barcode-tail { font-size: 13px; color: var(--dim); white-space: nowrap; }
+
+/* ─────────────────────── 13. 规格大卡（秋名山位） ─────────────────────── */
+.spec-card { padding: 18px; }
+
+/* 头部双联：地点（未器 UNGRADED）× 行动（Night Build ナイトビルド） */
+.spec-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.spec-head b { display: block; font-family: var(--serif); font-weight: 900; font-size: 24px; color: var(--cream); line-height: 1.2; }
+.spec-place b em, .spec-place b { font-style: normal; }
+.spec-head i { display: block; font-style: normal; font-family: var(--term); font-size: 13px; letter-spacing: .2em; color: var(--dim); margin-top: 3px; }
+.spec-run { text-align: right; }
+.spec-run b { color: var(--rust); }
+
+/* 中央舞台：像素「器」字画布 + 右下角宣言标签 */
+.spec-stage {
+  position: relative;
+  margin-top: 16px;
+  border: 1px solid var(--line-soft);
+  background:
+    radial-gradient(ellipse 70% 60% at 30% 25%, rgba(216, 172, 98, .08), transparent 60%),
+    rgba(0, 0, 0, .22);
+  display: grid;
+  place-items: center;
+  padding: 22px 0;
+  overflow: hidden;
+}
+#px-vessel {
+  display: block;
+  width: min(340px, 78%);
+  height: auto;
+  image-rendering: pixelated;   /* 像素块放大保持锐利 */
+}
+.spec-tag {
+  position: absolute; right: 14px; bottom: 12px;
+  font-size: 11px; line-height: 1.6; letter-spacing: .1em;
+  color: var(--cream-dim); text-align: left;
+}
+
+/* 底部读数区 */
+.spec-foot { margin-top: 16px; }
+
+/* ─────────────────────── 14. HUD 仪表条 ─────────────────────── */
+.meter-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.meter-name { font-size: 12px; letter-spacing: .14em; color: var(--cream-dim); width: 128px; flex: none; }
+.meter-val { font-size: 14px; color: var(--cream); width: 44px; text-align: right; flex: none; }
+.meter-max { font-size: 12px; color: var(--dim); flex: none; }
+.meter-max b { color: var(--rust); font-weight: 400; }
+
+/* 条体外框：双线嵌套（外框 + 内衬 2px 黑 + 内条） */
+.meter {
+  flex: 1;
+  height: 14px;
+  border: 1px solid var(--line);
+  padding: 2px;
+  background: rgba(0, 0, 0, .3);
+}
+/* 内条：锈红油墨；未充能宽度 0，.is-in 后按 --w 逐格充能（steps 24 帧） */
+.meter i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--rust);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .35);
+  transition: width 1.15s steps(24) .25s;
+}
+/* 显现触发充能（卡片 .is-in 之后） */
+.is-in .meter i, body.is-live .hero .meter i { width: var(--w, 0%); }
+
+/* ─────────────────────── 15. WORKS 器物卡 ─────────────────────── */
+.works { padding-top: 30px; padding-bottom: 80px; }
+
+.sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 26px; }
+.sec-head h2 { font-family: var(--term); font-weight: 400; font-size: 30px; letter-spacing: .1em; color: var(--cream); }
+.sec-head h2 b { color: var(--rust); font-weight: 400; }
+.sec-sub { font-family: var(--term); font-size: 14px; letter-spacing: .2em; color: var(--dim); }
+
+.work-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.work-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; }
+
+/* 序号：终端字大号描边数字，印在右上（001 机器编号感） */
+.work-no {
+  position: absolute; top: 10px; right: 14px;
+  font-family: var(--term); font-size: 52px; line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--line);
+}
+
+.work-card h3 { font-family: var(--term); font-weight: 400; font-size: 20px; letter-spacing: .12em; color: var(--cream); }
+.work-zh { font-family: var(--serif); font-weight: 700; font-size: 17px; color: var(--rust); letter-spacing: .3em; }
+.work-desc { font-size: 12.5px; line-height: 1.85; color: var(--dim); margin: 4px 0 10px; }
+
+.meters { border-top: 1px dashed var(--line-soft); padding-top: 8px; margin-top: auto; }
+.work-card .meter-name { width: 86px; font-size: 11px; }
+.work-card .meter { height: 11px; }
+
+.work-status {
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px dashed var(--line-soft);
+  font-size: 12px; letter-spacing: .12em; color: var(--cream-dim);
+}
+.work-status b { color: var(--rust); font-weight: 400; }
+
+/* hover：卡片边框转锈红 + 轻微上移（steps 跳帧，像换了印刷帧） */
+.work-card { transition: border-color .18s var(--step-fast), translate .18s var(--step-fast); }
+.work-card:hover { border-color: var(--rust); translate: 0 -4px; }
+.work-card:hover .work-no { -webkit-text-stroke-color: var(--rust); }
+
+/* ─────────────────────── 16. MANIFESTO 宣言 ─────────────────────── */
+.manifesto { padding-top: 40px; padding-bottom: 90px; text-align: center; }
+
+.mani-kicker { font-size: 14px; letter-spacing: .24em; color: var(--rust); }
+
+/* 「君子不器」：中文衬线特粗巨字 —— 这条谱系里中文的巨字必须衬线，
+   与英文像素巨字构成"双印刷体系"，呼应海报的英日双语 */
+.mani-display {
+  font-family: var(--serif);
+  font-weight: 900;
+  font-size: clamp(58px, 11vw, 132px);
+  line-height: 1.15;
+  letter-spacing: .06em;
+  color: var(--cream);
+  margin: 10px 0 26px;
+  /* 硬像素双影：锈红错位一层，模拟双色套印的偏版 */
+  text-shadow: 6px 6px 0 rgba(210, 74, 50, .32);
+}
+
+.mani-lines p { margin: 8px 0; }
+.mani-lines .mono { font-size: 17px; line-height: 1.7; color: var(--cream-dim); letter-spacing: .08em; }
+.mani-zh { font-family: var(--serif); font-weight: 600; font-size: 19px; letter-spacing: .3em; color: var(--dim); }
+
+/* ─────────────────────── 17. DATA CARD 规格表 ─────────────────────── */
+.datacard { padding-bottom: 90px; display: grid; justify-items: center; }
+.datacard .card { width: min(640px, 100%); padding: 20px; }
+
+.dc-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.dc-head h2 { font-family: var(--px); font-weight: 400; font-size: 20px; letter-spacing: 0; }
+.dc-head h2 b { color: var(--rust); font-weight: 400; }
+.dc-brand { font-size: 12px; letter-spacing: .16em; color: var(--dim); }
+
+.dc-table { width: 100%; border-collapse: collapse; }
+.dc-table th, .dc-table td {
+  border-bottom: 1px dashed var(--line-soft);
+  padding: 9px 4px;
+  text-align: left;
+  font-weight: 400;
+}
+.dc-table th {
+  font-family: var(--term); font-size: 13px; letter-spacing: .2em;
+  color: var(--dim); width: 150px; vertical-align: top;
+}
+.dc-table td {
+  font-family: var(--term); font-size: 18px; letter-spacing: .06em;
+  color: var(--cream);
+}
+/* 关键反转行：DEFINITION = NULL —— 参数表里唯一的一行锈红 */
+.dc-table td.rust { color: var(--rust); }
+
+.dc-foot {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12px; letter-spacing: .16em; color: var(--dim);
+}
+.dc-foot .flag { color: var(--rust); font-size: 14px; }
+
+/* ─────────────────────── 18. FOOTER ─────────────────────── */
+.foot {
+  position: relative; z-index: 10;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 26px 28px 40px;
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  border-top: 1px solid var(--line-soft);
+}
+/* 用竖线字符直接排一条"字符条形码" */
+.foot-barcode {
+  font-family: var(--term);
+  font-size: 26px; letter-spacing: -2px;
+  color: var(--cream-dim);
+  white-space: nowrap; overflow: hidden;
+}
+.foot-line { font-size: 13px; letter-spacing: .14em; color: var(--dim); }
+.foot-top { font-size: 14px; letter-spacing: .14em; color: var(--cream-dim); text-decoration: none; }
+.foot-top:hover { color: var(--rust); }
+
+/* ─────────────────── 19. 显现系统（CRT 逐块刷新） ───────────────────
+   常规稿用平滑缓动，v4 用 steps()：位移分 9 帧跳变，
+   像旧显示器截图一样一格一格蹦出来 —— 像素风的灵魂缓动 */
+[data-rv] { opacity: 0; translate: 0 16px; }
+[data-rv].is-in, body.is-live [data-rv] {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity .06s steps(1, end) var(--d, 0s),
+    translate .5s var(--step-slow) var(--d, 0s);
+}
+
+/* ─────────────────────── 20. 无 JS 降级提示 ─────────────────────── */
+.no-js-note {
+  position: fixed; left: 50%; bottom: 18px; translate: -50% 0;
+  z-index: 60;
+  padding: 10px 18px;
+  background: var(--rust); color: var(--paper);
+  font-size: 15px; letter-spacing: .1em;
+  border: 1px solid var(--paper);
+}
+
+/* ─────────────────────── 21. 响应式 ─────────────────────── */
+@media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; }      /* 单列堆叠 */
+  .hero-l { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .work-grid { grid-template-columns: 1fr; }
+  .nav { display: none; }                    /* 概念稿直接收起导航 */
+  .barcode svg { width: 70%; }
+  .foot { flex-direction: column; gap: 10px; text-align: center; }
+}
+
+/* ─────────────────────── 22. 低动效偏好 ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  [data-rv] { opacity: 1; translate: none; transition: none; }
+  .meter i { width: var(--w, 0%); transition: none; }
+  .brand-mark, .top-status .dot { animation: none; }
+}

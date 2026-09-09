@@ -1,0 +1,234 @@
+---
+// ============================================================
+// Base.astro — 全站基础布局「墨渊 INK VOID」
+// ============================================================
+// 职责：head（字体/meta/视图过渡）+ 全局骨架
+// （流体墨画布 / 顶栏 / 页脚 / 噪点 / 自定义光标）+ 脚本装配。
+// 页面只往 <slot /> 里填各自的内容。
+// ============================================================
+
+// ClientRouter：Astro 视图过渡（浏览器端路由），配合 transition:persist 保留墨画布
+import { ClientRouter } from 'astro:transitions';
+import '../styles/global.css';
+// 站内搜索浮层（Pagefind 前端壳，索引由 build 管线生成）
+import SearchModal from '../components/SearchModal.astro';
+
+// —— 字体自托管（取代 fonts.loli.net CDN）——
+// @fontsource 各字重 CSS 内含按 unicode-range 切片的多个 @font-face，
+// 浏览器只下载当前页用到的字形片，行为与 CDN 一致但产物完全自持：
+// 消除第三方单点故障，国内访问不再依赖镜像站可用性。
+import '@fontsource/anton'; // 巨字英文（Anton，唯一字重 400）
+import '@fontsource/jetbrains-mono/400.css'; // 等宽：元信息 / 代码
+import '@fontsource/jetbrains-mono/700.css'; // 等宽加粗：强调行
+import '@fontsource/noto-sans-sc/400.css'; // 中文黑体：正文
+import '@fontsource/noto-sans-sc/500.css'; // 中文黑体：次强调
+import '@fontsource/noto-sans-sc/700.css'; // 中文黑体：加粗
+import '@fontsource/noto-sans-sc/900.css'; // 中文黑体：巨字
+import '@fontsource/noto-serif-sc/900.css'; // 中文宋体：沉底「不器」/ 引用
+
+interface Props {
+  /** 页面标题（<title>） */
+  title: string;
+  /** 页面描述（meta description / SEO / OG） */
+  description?: string;
+  /** OG 分享图：站点绝对路径（如 /og-default.png）或完整 URL；缺省用全站默认图 */
+  ogImage?: string;
+  /** og:type：文章页传 'article'，其余默认 'website' */
+  ogType?: 'website' | 'article';
+  /** 文章发布时间（article:published_time），仅文章页传 */
+  publishedTime?: Date;
+}
+
+const {
+  title,
+  description = 'unvessel / 不器 — 愿被看见，不被定义。',
+  ogImage = '/og-default.png',
+  ogType = 'website',
+  publishedTime,
+} = Astro.props;
+
+/** 全站品牌名（og:site_name 与 RSS alternate 共用） */
+const SITE_NAME = 'unvessel / 不器';
+
+// —— SEO 基准：canonical 与 OG 链接一律由 site 域名推导 ——
+// Astro.site 来自 astro.config.mjs（单点配置）；这样无论部署到哪个域名，
+// 分享卡片和规范链接都不会指向 dev 地址或旧域名。
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImageURL = new URL(ogImage, Astro.site);
+
+/** 全站联络邮箱（页脚与导航共用） */
+const EMAIL = 'hi@unvessel.me';
+
+/** 当前路径：用于顶栏导航的 aria-current 高亮 */
+const path = Astro.url.pathname;
+
+/** 导航定义：编号保持 v2 概念稿的 01/02/03 节奏 */
+const NAV = [
+  { no: '01', label: '文章', href: '/posts/' },
+  { no: '02', label: '宣言', href: '/about/' },
+  { no: '03', label: '联络', href: `mailto:${EMAIL}` },
+];
+
+/** 判断某导航项是否为当前页（联络是 mailto，永不匹配） */
+function isCurrent(href: string): boolean {
+  if (!href.startsWith('/')) return false;
+  if (href === '/') return path === '/';
+  return path === href || path.startsWith(href);
+}
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      SEO：canonical 指向正式域名下的当前页，
+      避免带查询参数的镜像 URL 稀释搜索权重。
+    -->
+    <link rel="canonical" href={canonicalURL} />
+
+    <!--
+      站点发现入口：
+      - sitemap：@astrojs/sitemap 产出的索引（robots.txt 同步指向）
+      - RSS：feed.xml（页脚也有固定入口）
+    -->
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="alternate" type="application/rss+xml" title={SITE_NAME} href={new URL('/feed.xml', Astro.site)} />
+
+    <!--
+      Open Graph：微信 / Telegram / Discord 等转链卡片。
+      图片绝对地址由 site 域名推导，尺寸与 scripts/og.mjs 产物一致（1200×630）。
+    -->
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    {publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
+
+    <!-- Twitter/X 卡片：大图模式，与 OG 同源 -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL} />
+
+    <!-- 视图过渡：多页间 SPA 式切换，巨字与流体墨不断帧 -->
+    <ClientRouter />
+  </head>
+
+  <body>
+    <!-- 流体墨画布：persist 跨页持久，GL 上下文连续 -->
+    <canvas id="ink-canvas" transition:persist="ink"></canvas>
+
+    <!-- 键盘跳转：直达正文 -->
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <!-- 顶栏：品牌 / 导航 / 元信息 -->
+    <header class="topbar">
+      <a class="topbar__brand" href="/">
+        <span class="topbar__square" aria-hidden="true"></span>
+        <span>UNVESSEL</span>
+        <span class="topbar__zh">不器</span>
+      </a>
+      <nav class="topbar__nav" aria-label="主导航">
+        {NAV.map((item) => (
+          <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+            <i>{item.no}</i>
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </nav>
+      <!-- 检索按钮：与导航项同视觉（发丝线分隔 + 等宽字），朱砂 ⌕ 是功能位的唯一点色 -->
+      <button class="topbar__search" type="button" data-search-open aria-label="站内检索（快捷键 Ctrl+K）">
+        <i aria-hidden="true">⌕</i>
+        <span>检索</span>
+      </button>
+      <p class="topbar__meta">EST.2026 — INK VOID</p>
+    </header>
+
+    <!-- 页面内容：各页自行铺排 -->
+    <main id="main">
+      <slot />
+    </main>
+
+    <!-- 页脚：联络 / 站点地图 / 印章 + 沉底巨字 -->
+    <footer class="footer">
+      <div class="footer__grid">
+        <div class="footer__col">
+          <p class="footer__label">联络 / CONTACT</p>
+          <ul>
+            <li><a href={`mailto:${EMAIL}`}>{EMAIL}</a></li>
+            <li><a href="/feed.xml">RSS</a></li>
+          </ul>
+        </div>
+        <div class="footer__col">
+          <p class="footer__label">站点地图 / SITEMAP</p>
+          <ul>
+            <li><a href="/">首页</a></li>
+            <li><a href="/posts/">文章</a></li>
+            <li><a href="/about/">宣言</a></li>
+          </ul>
+        </div>
+        <div class="footer__col footer__col--end">
+          <span class="seal" aria-hidden="true">不器</span>
+          <p class="footer__fine">
+            © 2026 UNVESSEL — BUILT WITH ASTRO<br />
+            愿被看见，不被定义
+          </p>
+        </div>
+      </div>
+      <!-- 沉底描边巨字：下半裁掉，像字沉入渊里 -->
+      <p class="footer__big" aria-hidden="true">不器</p>
+    </footer>
+
+    <!-- 噪点覆层与自定义光标：固定层，persist 保持连续 -->
+    <div class="grain" aria-hidden="true" transition:persist="grain"></div>
+    <div class="cursor" aria-hidden="true" transition:persist="cursor">
+      <span class="cursor__dot"></span>
+      <span class="cursor__ring"></span>
+    </div>
+
+    <!-- 站内检索浮层：Ctrl/⌘+K 或顶栏「检索」唤起（交互在 main.js） -->
+    <SearchModal />
+
+    <!-- 无 JS 降级：所有显现元素直接可见（配合 CSS .no-js 规则） -->
+    <noscript>
+      <style>
+        [data-rv],
+        .hero__title .gi {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+        /* 检索依赖 JS（Pagefind 索引 + 浮层交互）：无 JS 时隐藏入口与骨架 */
+        .topbar__search,
+        .search {
+          display: none !important;
+        }
+      </style>
+    </noscript>
+
+    <!--
+      脚本装配：astro:page-load 在首次加载与每次视图过渡后都会触发，
+      ink（幂等启动，persist 画布续跑）与 main（幂等初始化）各就各位。
+    -->
+    <script>
+      import { startInk } from '../scripts/ink.js';
+      import { initPage } from '../scripts/main.js';
+
+      document.addEventListener('astro:page-load', () => {
+        startInk();
+        initPage();
+      });
+    </script>
+  </body>
+</html>

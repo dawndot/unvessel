@@ -1,0 +1,38 @@
+---
+// ============================================================
+// PostRow.astro — 文章列表行（v2 签名交互：朱砂底整行反白）
+// ============================================================
+// 使用处：首页「最新文章」与 /posts/ 列表页。
+// 传入内容集合条目与展示序号，内部只做展示格式化。
+// ============================================================
+
+import { formatDate } from '../lib/utils';
+
+interface Props {
+  /** 内容集合条目（posts collection） */
+  post: any;
+  /** 展示序号（从 1 起，渲染成 001 风格） */
+  idx: number;
+}
+
+const { post, idx } = Astro.props;
+const { title, description, pubDate, tags, draft } = post.data;
+
+/** 标签列：无标签显示占位符，保持网格列不塌 */
+const cat = tags.length > 0 ? tags.join(' / ') : '—';
+/** 草稿标记：列表里用朱砂小旗提示（draft 在查询层通常已过滤，防御性展示） */
+const flag = draft ? ' [草稿]' : '';
+---
+
+<li>
+  <a class="row" href={`/posts/${post.id}/`}>
+    <span class="row__idx">{String(idx).padStart(3, '0')}</span>
+    <span class="row__main">
+      <span class="row__title">{title}{flag}</span>
+      <span class="row__sub">{description}</span>
+    </span>
+    <span class="row__cat">{cat}</span>
+    <time class="row__date" datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
+    <span class="row__arrow" aria-hidden="true">→</span>
+  </a>
+</li>

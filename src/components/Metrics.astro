@@ -1,0 +1,110 @@
+---
+// ============================================================
+// Metrics.astro — 阅读量 / 点赞 widget（前端降级壳）
+// ============================================================
+// 数据来源：POST /api/metrics（Vercel Serverless + Upstash，见 /api/metrics.ts）。
+//
+// 降级策略（前端侧）：容器默认 hidden；
+//   - API 未配置（503）/ 网络失败 / 响应异常 → 永远保持 hidden，
+//     用户侧完全无感，页面其余部分零影响；
+//   - 只有拿到合法 {views, likes} 才渲染 —— 数据存在即功能存在。
+//
+// 交互：
+//   - 进入文章页自动 POST action=view（服务端做同 IP 去重）；
+//   - 点赞：POST action=like，成功后 localStorage 记忆已赞，
+//     刷新/回访显示「已铭刻」态，重复点击无效。
+// ============================================================
+import { METRICS_API, METRICS_LS_PREFIX } from '../config/site';
+
+interface Props {
+  /** 文章 slug（= 内容集合 id）：计数器的存储键，也用于 localStorage 已赞标记 */
+  slug: string;
+}
+
+const { slug } = Astro.props;
+---
+
+<!-- hidden 是唯一初始态：JS 拿到数据才揭开，无 JS / API 缺席时全程不可见 -->
+<div class="metrics" id="metrics" data-slug={slug} hidden>
+  <span class="metrics__views">
+    阅读 <b id="metrics-views">—</b>
+  </span>
+  <button class="metrics__like" id="metrics-like" type="button">
+    <i aria-hidden="true">◆</i> 点赞 <b id="metrics-likes">—</b>
+  </button>
+</div>
+
+<script>
+  // —— 计数挂载（processed module：整站执行一次，靠 astro:page-load 重入）——
+  // 幂等：容器打 data-ready 标记，同页重复调用不会重复计数/绑定。
+  import { METRICS_API, METRICS_LS_PREFIX } from '../config/site';
+
+  function initMetrics() {
+    const box = document.getElementById('metrics');
+    if (!box || box.dataset.ready) return; // 非文章页 / 已初始化：静默退出
+    box.dataset.ready = '1';
+
+    // slug 由文章页写在容器 data-slug 上（数据入口唯一，JS 不解析 URL）
+    const slug = box.dataset.slug || '';
+    const viewsEl = document.getElementById('metrics-views');
+    const likesEl = document.getElementById('metrics-likes');
+    const likeBtn = document.getElementById('metrics-like') as HTMLButtonElement | null;
+    if (!slug || !viewsEl || !likesEl || !likeBtn) return;
+
+    /** 展示层：数字补零成 4 位等宽（0021），墨渊元信息的既有语言 */
+    const pad = (n: number) => String(Math.max(0, n)).padStart(4, '0');
+
+    /** 已赞判定：localStorage 持久（赞过就是赞过） */
+    const likedKey = METRICS_LS_PREFIX + slug;
+    const hasLiked = () => localStorage.getItem(likedKey) === '1';
+    const markLiked = () => {
+      likeBtn.classList.add('is-liked');
+      likeBtn.setAttribute('aria-pressed', 'true');
+    };
+
+    /** 主流程：POST view 拿回 {views, likes}；成功才揭开容器 */
+    async function track() {
+      try {
+        const res = await fetch(METRICS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, action: 'view' }),
+        });
+        if (!res.ok) return; // 503 / 4xx：保持 hidden，静默降级
+        const data = await res.json();
+        if (typeof data.views !== 'number' || typeof data.likes !== 'number') return;
+
+        viewsEl.textContent = pad(data.views);
+        likesEl.textContent = pad(data.likes);
+        if (hasLiked()) markLiked(); // 回访：恢复已赞态
+        box.hidden = false; // 数据到手，此刻才显示
+      } catch {
+        /* 网络失败：保持 hidden。widget 是纯增益，不做任何重试 */
+      }
+    }
+
+    // 点赞：已赞无效；未赞则 POST like，成功后本地记忆 + 就地 +1
+    likeBtn.addEventListener('click', () => {
+      if (hasLiked()) return;
+      fetch(METRICS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, action: 'like' }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data || typeof data.likes !== 'number') return;
+          localStorage.setItem(likedKey, '1');
+          likesEl.textContent = pad(data.likes);
+          markLiked();
+        })
+        .catch(() => {});
+    });
+
+    track();
+  }
+
+  initMetrics();
+  // ClientRouter 换页：每次页面装载后重入（initMetrics 自带幂等）
+  document.addEventListener('astro:page-load', initMetrics);
+</script>

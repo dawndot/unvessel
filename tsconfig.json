@@ -1,0 +1,13 @@
+{
+  // 继承 Astro 官方严格配置（strict 全套：strictNullChecks / noUncheckedIndexedAccess 等）。
+  // 注意：extends 目标位于 node_modules/astro/tsconfigs/strict.json，
+  // 依赖必须先安装（npm install），否则 IDE 的 TS 服务会报「找不到 tsconfig」类错误。
+  "extends": "astro/tsconfigs/strict",
+  // 类型检查覆盖范围：
+  // - .astro/types.d.ts：astro sync 生成的框架类型（缺失时 IDE 同样会报配置错误，跑 npx astro sync 生成）
+  // - src/**/*：Astro 工程全部源码
+  // - api/**/*：Vercel Serverless 函数（e6 新增；原配置漏覆盖，IDE 打开时文件不属于任何 TS 项目）
+  "include": [".astro/types.d.ts", "src/**/*", "api/**/*"],
+  // 不参与类型检查的目录：dist 构建产物 / node_modules 依赖
+  "exclude": ["dist", "node_modules"]
+}

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<!-- ==========================================================================
+  unvessel · 不器 —— 文章页设计稿（静态活稿）
+  作用：定义正文排版系统（prose），示范标题/引用/代码/插图/分隔符全套样式。
+  正文为示例文本，用于展示排版效果。
+=========================================================================== -->
+<html lang="zh-CN" data-theme="ink-light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>墨的十种死法 · 不器</title>
+    <meta name="description" content="一个水墨 shader 的调试笔记（文章页排版示例）。" />
+
+    <!-- 主题预载：与 index.html 相同，防暗色用户白闪 -->
+    <script>
+      ;(function () {
+        var saved = localStorage.getItem('unvessel-theme')
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.dataset.theme =
+          saved || (prefersDark ? 'ink-dark' : 'ink-light')
+      })()
+    </script>
+
+    <!-- Web 字体：与 index.html 相同（思源宋体 + 思源黑体，loli.net 国内镜像，切片加载） -->
+    <link rel="preconnect" href="https://fonts.loli.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap"
+    />
+
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">跳到正文</a>
+
+    <!-- 文章页保留墨迹画布（更淡）与颗粒，保持全站氛围一致 -->
+    <canvas id="ink-canvas" aria-hidden="true" data-quiet="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <!-- 阅读进度条（site.js 检测到此元素才启用） -->
+    <div class="progress" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="./index.html" aria-label="回到首页">
+          <span class="seal" aria-hidden="true">不器</span>
+          <span class="brand-name">不器</span>
+          <span class="brand-en">UNVESSEL</span>
+        </a>
+        <nav class="topnav" aria-label="主导航">
+          <a href="./index.html#posts">文章</a>
+          <a href="#" aria-disabled="true">归档</a>
+          <a href="#" aria-disabled="true">关于</a>
+          <button class="theme-toggle" type="button" aria-label="切换明暗主题"></button>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="page">
+      <article class="article">
+        <p class="article-kicker mono">示例文章 · 工艺 · DESIGN DRAFT</p>
+        <h1 class="article-title">墨的十种死法：一个水墨 shader 的调试笔记</h1>
+        <div class="article-meta mono">
+          <span>2026-09-02</span><span>·</span><span>约 12 分钟</span><span>·</span>
+          <span>#GLSL</span><span>#生成艺术</span><span>#踩坑</span>
+        </div>
+
+        <div class="prose">
+          <p>
+            墨是活的。它在宣纸上洇开的那一刻，同时在发生三件事：扩散、渗透、蒸发。
+            想用着色器骗过人眼，就得把这三件事都装进同一个片元着色器里——
+            而它们中的每一个，都有一百种方式让画面变成一团死灰。
+            这篇文章记录我把水墨效果调活之前，它死去过的十种方式。
+          </p>
+
+          <h2>一、噪点太密：墨成了铁灰</h2>
+          <p>
+            第一版里我把 fBm 噪声的八度数开到 6，以为是细节。结果墨色均匀得像喷墨打印机——
+            <em>真实的墨从来不是均匀的</em>，它有浓淡、有飞白、有突然洇开的一坨。
+            后来把八度降到 3，再让亮度参与噪声权重，墨才有了呼吸。
+          </p>
+
+          <h2>二、扩散没有边界衰减</h2>
+          <p>
+            墨滴落在纸上，边缘应该比中心淡。我用的是距离场平方衰减，而不是线性衰减——
+            线性衰减会让边缘出现一圈可疑的「描边」。正确的手感来自
+            <code>smoothstep(0.0, 0.7, 1.0 - dist * dist)</code> 这种不光滑的式子。
+          </p>
+
+          <blockquote>
+            「君子不器。」
+            <cite>——《论语 · 为政》。器有定形，墨没有；调 shader 的人最好也没有。</cite>
+          </blockquote>
+
+          <h2>三、洇开的速度是匀速的</h2>
+          <p>
+            真实的墨在落纸头 200 毫秒内扩张最快，然后骤减。我用指数缓动模拟：
+            半径每帧向目标值靠近 0.4%。写完这句话只用了十秒，
+            调到手感正确用了三个晚上——<strong>参数不是算出来的，是看出来的</strong>。
+          </p>
+
+          <!-- 插图示例：一笔环（enso）——不器之形。内联 SVG，离线可用 -->
+          <figure>
+            <svg class="enso" viewBox="0 0 200 200" role="img" aria-label="一笔环示意">
+              <path
+                d="M100 18 A82 82 0 1 0 168 118"
+                fill="none" stroke="currentColor" stroke-width="9"
+                stroke-linecap="round" opacity="0.88" />
+              <path
+                d="M100 18 A82 82 0 1 0 168 118"
+                fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" opacity="0.45"
+                transform="rotate(5 100 100)" />
+              <path
+                d="M100 18 A82 82 0 1 0 168 118"
+                fill="none" stroke="currentColor" stroke-width="1"
+                stroke-linecap="round" opacity="0.2"
+                transform="rotate(9 100 100)" />
+            </svg>
+            <figcaption>FIG.1 — 一笔环：画完的那一刻就开始枯竭，恰如器成形</figcaption>
+          </figure>
+
+          <h2>四、笔触的边缘太「干净」</h2>
+          <p>
+            直线段拼接的路径永远画不出毛边。最后的方案是给每条边叠加两层低频扰动：
+            一层管大形状的歪斜，一层管细小的须状渗出。代码反而变简单了：
+          </p>
+
+          <pre><code>// 边缘扰动：两层噪声叠加，低频管形、高频管须
+float edge(float d, float t) {
+    float warp  = noise(d * 3.0  + t * 0.2) * 0.35; // 形的歪斜
+    float fuzz  = noise(d * 24.0 - t * 0.7) * 0.08; // 须的渗出
+    return smoothstep(0.2, 0.9, d + warp + fuzz);
+}</code></pre>
+
+          <p>
+            剩下的六种死法——帧率抖动、色彩空间错位、混合模式选错、
+            时间步长撕裂、DPI 忘了乘、以及在 M1 上偷偷溢出的精度——
+            等正式动笔再写。写这篇示例只是为了展示正文排版：
+            标题、引用、代码块、插图与分隔符。
+          </p>
+
+          <hr />
+        </div>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="post-nav" aria-label="文章导航">
+          <a class="prev" href="#">
+            <span class="dir mono">← 上一篇</span>
+            <span class="t">器与不器：为什么我把博客命名为 unvessel</span>
+          </a>
+          <a class="next" href="#">
+            <span class="dir mono">下一篇 →</span>
+            <span class="t">愿被看见：写作是一种温柔的暴露</span>
+          </a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="footer page">
+      <div class="wrap">
+        <span class="seal" aria-hidden="true">不器</span>
+        <span class="mono">© 2026 UNVESSEL · 由墨与代码构成</span>
+        <nav class="footer-links" aria-label="页脚链接">
+          <a href="#">RSS</a>
+          <a href="#">GITHUB</a>
+          <a href="#">EMAIL</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script src="./assets/site.js"></script>
+  </body>
+</html>

@@ -1,0 +1,229 @@
+<!doctype html>
+<!--
+  unvessel / 不器 — v2 概念稿「墨渊 INK VOID」
+  ============================================================
+  本页是单页「气质验证稿」：只验证视觉方向是否成立，不做功能。
+
+  与 v1（design/，宣纸文艺向）的关系：
+    v1 = 纸·墨·朱：暖白宣纸底 + 编辑部式排版，温和、素雅；
+    v2 = 纯黑渊面 + 视口级巨字 + WebGL 流体墨 + 朱砂唯一彩色，
+         对标 Awwwards 获奖站 / bruno-simon / 日式极简锋利。
+
+  层级结构（z-index 从低到高）：
+    #ink-canvas (0)  WebGL 流体墨背景，ink.js 渲染
+    main/header (2)  页面内容
+    .grain      (50) 全局噪点覆层，压住数码感
+    .cursor     (60) 自定义光标（仅精确指针设备）
+
+  重要立场：v2 是「单主题」设计——只有黑，没有亮色切换。
+  气质即立场：墨渊里不存在白昼。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#070707" />
+  <title>不器 UNVESSEL — 愿被看见，不被定义</title>
+  <meta name="description" content="unvessel / 不器 —— 个人博客 v2 概念稿「墨渊 INK VOID」。愿被看见，不被定义。" />
+
+  <!-- Web 字体（fonts.loli.net = Google Fonts 国内镜像，按 unicode-range 切片，
+       浏览器只下载页面用到的字形；失败自动回退系统栈，不阻塞渲染）：
+       Anton          —— 拉丁展示体（仅覆盖英文），横滚里的 UNVESSEL 用它压阵；
+       Noto Sans SC   —— 思源黑体：900 用于视口级巨字，400/500/700 用于正文；
+       JetBrains Mono —— 等宽小字：编号 / 坐标 / 标签，制造「实验记录」的冷感。
+       正式 Astro 站将改为自托管子集化 woff2（见 design-v2/README.md 字体策略）。 -->
+  <link rel="preconnect" href="https://fonts.loli.net" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.loli.net/css2?family=Anton&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@900&display=swap"
+  />
+
+  <link rel="stylesheet" href="./assets/style.css" />
+
+  <!-- 无 JS 降级：显现动画全部直接可见，页面照常可读 -->
+  <noscript>
+    <style>
+      [data-rv] { opacity: 1 !important; transform: none !important; }
+    </style>
+  </noscript>
+</head>
+<body id="top">
+  <!-- 背景层：WebGL 流体墨。ink.js 渲染失败时自动移除，只剩纯色渊底 -->
+  <canvas id="ink-canvas" aria-hidden="true"></canvas>
+
+  <!-- 跳转链接（键盘可达性）：聚焦时才出现 -->
+  <a class="skip-link" href="#works">跳到文章列表</a>
+
+  <!-- 顶栏：发丝线分隔 + 等宽字编号，三段式（品牌 / 导航 / 元信息） -->
+  <header class="topbar">
+    <a class="topbar__brand" href="#top">
+      <span class="topbar__square" aria-hidden="true"></span>
+      UNVESSEL<em class="topbar__zh">不器</em>
+    </a>
+    <nav class="topbar__nav" aria-label="主导航">
+      <a href="#works"><i>01</i>文章</a>
+      <a href="#manifesto"><i>02</i>宣言</a>
+      <a href="#contact"><i>03</i>联络</a>
+    </nav>
+    <p class="topbar__meta">EST.2026 — INK VOID</p>
+  </header>
+
+  <main>
+    <!-- ============ HERO：一屏之内只有巨字与渊 ============ -->
+    <section class="hero">
+      <!-- 四角十字定位标：日式制图感的「锐」 -->
+      <i class="cross cross--tl" aria-hidden="true">+</i>
+      <i class="cross cross--tr" aria-hidden="true">+</i>
+      <i class="cross cross--bl" aria-hidden="true">+</i>
+      <i class="cross cross--br" aria-hidden="true">+</i>
+
+      <!-- 左上引语条：朱砂方点呼吸 + 等宽大写 -->
+      <p class="hero__kicker" data-rv style="--d:.55s">
+        <span class="kdot" aria-hidden="true"></span>INK VOID — EXPERIMENTAL FIELD
+      </p>
+
+      <!-- 视口级巨字：不 = 实心白，器 = 描边空心（悬停灌朱砂）。
+           data-rv + --d 做逐字入场；data-parallax 由 main.js 驱动鼠标视差 -->
+      <h1 class="hero__title" aria-label="不器" data-parallax>
+        <span class="g" aria-hidden="true"><span class="gi" data-rv style="--d:.05s">不</span></span><span
+          class="g g--hollow" aria-hidden="true"><span class="gi" data-rv style="--d:.18s">器</span></span>
+      </h1>
+
+      <!-- 右侧竖排 slogan：竖线下坠感，「不被定义」被朱砂划掉 -->
+      <p class="hero__slogan" aria-label="愿被看见，不被定义" data-parallax data-rv style="--d:.42s">
+        <span class="vtext">愿被看见</span>
+        <span class="vtext vtext--strike" aria-hidden="true">不被定义</span>
+      </p>
+
+      <!-- 底部元信息条：三段等宽字 + 发丝线 -->
+      <div class="hero__meta" data-rv style="--d:.72s">
+        <span>SCROLL ↓</span>
+        <span>N 22.54° / E 114.05° — CN</span>
+        <span>INK VOID / V2 CONCEPT</span>
+      </div>
+    </section>
+
+    <!-- ============ 无缝横滚：Anton(拉丁) × 思源黑体(中文) 巨型循环带 ============ -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee__track">
+        <!-- 两份完全相同的 group，轨道位移 -50% 实现无缝循环 -->
+        <div class="marquee__group">
+          <span class="mq">愿被看见</span><i class="mq-sep"></i>
+          <span class="mq mq--accent">不被定义</span><i class="mq-sep"></i>
+          <span class="mq mq--hollow">UNVESSEL</span><i class="mq-sep"></i>
+        </div>
+        <div class="marquee__group">
+          <span class="mq">愿被看见</span><i class="mq-sep"></i>
+          <span class="mq mq--accent">不被定义</span><i class="mq-sep"></i>
+          <span class="mq mq--hollow">UNVESSEL</span><i class="mq-sep"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 01 文章：日式锋利行列表，悬停整行反白 ============ -->
+    <section class="works" id="works">
+      <header class="sec-head">
+        <p class="sec-head__label" data-rv>01 — 文章 <span>SELECTED WRITINGS</span></p>
+        <p class="sec-head__count" data-rv style="--d:.08s">003 FILES</p>
+      </header>
+
+      <ol class="works__list">
+        <li data-rv style="--d:0s">
+          <a class="row" href="#">
+            <span class="row__idx">001</span>
+            <span class="row__main">
+              <span class="row__title">把博客当作一间工作室</span>
+              <span class="row__sub">随笔 ESSAY — 2026.09.01</span>
+            </span>
+            <span class="row__cat">ESSAY</span>
+            <span class="row__date">2026.09.01</span>
+            <span class="row__arrow" aria-hidden="true">→</span>
+          </a>
+        </li>
+        <li data-rv style="--d:.07s">
+          <a class="row" href="#">
+            <span class="row__idx">002</span>
+            <span class="row__main">
+              <span class="row__title">WebGL 十行入门：从黑屏到流体</span>
+              <span class="row__sub">技术 DEVLOG — 2026.08.12</span>
+            </span>
+            <span class="row__cat">DEVLOG</span>
+            <span class="row__date">2026.08.12</span>
+            <span class="row__arrow" aria-hidden="true">→</span>
+          </a>
+        </li>
+        <li data-rv style="--d:.14s">
+          <a class="row" href="#">
+            <span class="row__idx">003</span>
+            <span class="row__main">
+              <span class="row__title">君子不器：一个 ID 的来历</span>
+              <span class="row__sub">手记 NOTES — 2026.07.30</span>
+            </span>
+            <span class="row__cat">NOTES</span>
+            <span class="row__date">2026.07.30</span>
+            <span class="row__arrow" aria-hidden="true">→</span>
+          </a>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============ 02 宣言：滚到此节，字必须大到逼人 ============ -->
+    <section class="manifesto" id="manifesto">
+      <p class="sec-head__label manifesto__label" data-rv>02 — 宣言 <span>MANIFESTO</span></p>
+      <p class="manifesto__l1" data-rv style="--d:.06s">君子<span class="hollow">不器</span>。</p>
+      <p class="manifesto__l2" data-rv style="--d:.14s">
+        「形而上者谓之道，形而下者谓之器。」——《易·系辞》
+      </p>
+      <p class="manifesto__l3" data-rv style="--d:.22s">
+        愿被看见，<em>不被定义</em>。
+      </p>
+    </section>
+  </main>
+
+  <!-- ============ 03 页脚：描边巨字沉底 + 朱砂印章 ============ -->
+  <footer class="footer" id="contact">
+    <div class="footer__grid">
+      <div class="footer__col" data-rv>
+        <p class="footer__label">联络 CONTACT</p>
+        <ul>
+          <li><a href="mailto:hi@unvessel.net">hi@unvessel.net</a></li>
+          <li><a href="https://github.com" rel="noopener">GitHub</a></li>
+          <li><a href="#">RSS / Atom</a></li>
+        </ul>
+      </div>
+      <div class="footer__col" data-rv style="--d:.08s">
+        <p class="footer__label">站点 SITEMAP</p>
+        <ul>
+          <li><a href="#works">文章</a></li>
+          <li><a href="#manifesto">宣言</a></li>
+          <li><a href="#top">回到顶部 ↑</a></li>
+        </ul>
+      </div>
+      <div class="footer__col footer__col--end" data-rv style="--d:.16s">
+        <span class="seal" aria-hidden="true">不器</span>
+        <p class="footer__fine">
+          DESIGN — INK VOID V2<br />
+          BUILT WITH ASTRO (PLANNED)<br />
+          © 2026 UNVESSEL / 不器
+        </p>
+      </div>
+    </div>
+    <!-- 沉底的描边巨字：footer overflow hidden + 负 margin 裁掉下半 -->
+    <p class="footer__big" aria-hidden="true">不器</p>
+  </footer>
+
+  <!-- 噪点覆层：SVG feTurbulence 平铺，压住渐变的数码平滑感 -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- 自定义光标：朱砂点 + 滞后圆环（main.js 驱动，触屏自动禁用） -->
+  <div class="cursor" aria-hidden="true">
+    <span class="cursor__ring"></span>
+    <span class="cursor__dot"></span>
+  </div>
+
+  <!-- WebGL 流体墨背景：原生 WebGL1，零依赖，失败降级纯色渊底 -->
+  <script src="./assets/ink.js"></script>
+  <!-- 交互层：字体就绪入场 / 滚动显现 / 自定义光标 / Hero 视差 -->
+  <script defer src="./assets/main.js"></script>
+</body>
+</html>

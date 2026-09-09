@@ -1,0 +1,55 @@
+---
+// ============================================================
+// Comments.astro — Giscus 评论（占位开关组件）
+// ============================================================
+// 降级策略（最严格形态）：site.ts 的 GISCUS 未配置齐全时，
+// giscusEnabled = false → 本组件构建期输出为空，
+// 产物里没有评论区 DOM、没有挂载脚本、没有任何外部请求；
+// 配置齐全后重建，评论区在文章页「文末返回」上方出现。
+//
+// 脚本形态说明：采用「条件输出的 inline script」而非 processed module——
+// 1. 条件输出：整个 <script> 写在 giscusEnabled && 表达式里，
+//    未配置时连脚本文本都不进产物（processed script 无论模板条件都会打包）；
+// 2. 换页友好：inline script 随 HTML 每页重新执行，天然适配
+//    ClientRouter 换页（无需 astro:page-load 重入监听）；
+// 3. 幂等：容器打 data-ready 标记，同页重复执行不会重复注入。
+// ============================================================
+import { GISCUS, giscusEnabled } from '../config/site';
+---
+
+{
+  giscusEnabled && (
+    <section class="comments" aria-label="文章评论">
+      <div class="comments__rule">
+        <span class="comments__label">附录 · 议论</span>
+      </div>
+      <div id="giscus" class="comments__mount" />
+      <script is:inline define:vars={{ GISCUS }}>
+        (function mountGiscus() {
+          var mount = document.getElementById('giscus');
+          if (!mount || mount.dataset.ready) return; // 容器不存在 / 已挂载：静默退出
+          mount.dataset.ready = '1';
+
+          // 动态创建官方脚本节点并写入配置（giscus 约定：全部经 data-* 传入）
+          var s = document.createElement('script');
+          s.src = 'https://giscus.app/client.js';
+          s.async = true;
+          s.crossOrigin = 'anonymous';
+          var attrs = {
+            'data-repo': GISCUS.repo,
+            'data-repo-id': GISCUS.repoId,
+            'data-category': GISCUS.category,
+            'data-category-id': GISCUS.categoryId,
+            'data-mapping': GISCUS.mapping,
+            'data-theme': GISCUS.theme,
+            'data-lang': GISCUS.lang,
+            'data-loading': 'lazy', // 滚动进视口才加载 iframe，首屏零开销
+            'data-emit-metadata': '0',
+          };
+          for (var k in attrs) s.setAttribute(k, attrs[k]);
+          mount.appendChild(s);
+        })();
+      </script>
+    </section>
+  )
+}

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNVESSEL 未器 /// 不器工房</title>
+  <meta name="description" content="unvessel 不器 —— 愿被看见，不被定义。复古像素印刷风格个人博客概念稿。">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       v4「不器工房 UNVESSEL ATELIER」· 复古像素印刷 HUD 风
+       谱系：Riso 双色印刷 × 街机仪表 × 头文字D 海报
+       与前三稿的关系（完全不同的第四方向）：
+         v1 文艺纸墨 → v2 当代画廊巨字 → v3 暖白黏土游乐 →
+         v4 黑底锈红米黄 · 高密度海报 · 像素巨字 · 仪表读数 · 日英衬注
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- Web 字体四件套（fonts.loli.net 为 Google Fonts 国内镜像）：
+       1. Press Start 2P — 8-bit 像素巨字（对应海报的 CYBER DRIVE / AE86）
+       2. VT323          — 终端点阵字（HUD 读数、百分比、状态行）
+       3. Noto Serif SC  — 中文衬线（「藤原とうふ店」式的印刷衬注、宣言大字）
+       4. Noto Sans SC   — 中文正文 -->
+  <link rel="preconnect" href="https://fonts.loli.net">
+  <link rel="preconnect" href="https://gstatic.loli.net" crossorigin>
+  <link href="https://fonts.loli.net/css2?family=Press+Start+2P&family=VT323&family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+  <!-- 全局做旧层：印刷噪点 + 泛黄斑驳 + 暗角（CSS 生成，禁止 pointer 事件）
+       z-index 999 盖在一切之上，模拟旧印刷品的纸张质感 -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- ═══ 顶栏：像素块 logo + 工房名 + 导航 + 呼吸状态灯 ═══ -->
+  <header class="topbar">
+    <a class="brand" href="#">
+      <!-- 像素方块 logo：四格拼块，rust 色闪烁（对应海报 AV 印记） -->
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text">
+        <b>UNVESSEL</b>
+        <i>不器工房 /// ATELIER</i>
+      </span>
+    </a>
+
+    <!-- Future >>> 式箭头导航：等宽大写 + 像素箭头 -->
+    <nav class="nav" aria-label="主导航">
+      <a href="#works"><span class="arr">≫</span>WORKS</a>
+      <a href="#manifesto"><span class="arr">≫</span>MANIFESTO</a>
+      <a href="#datacard"><span class="arr">≫</span>DATA</a>
+    </nav>
+
+    <div class="top-status">
+      <span class="dot" aria-hidden="true"></span>
+      <span>LEGENDARY /// BUILD 004</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ═══ HERO：左列窄卡堆叠 × 右侧像素巨字 + 规格大卡 ═══
+         布局复刻海报的不对称网格：左窄右宽，卡片细描边全直角 -->
+    <section class="hero">
+
+      <!-- ── 左列 ── -->
+      <aside class="hero-l">
+
+        <!-- 卡 1：线框球体 —— 复古未来正统 3D 元素
+             对应海报左上的线框地球仪；canvas 手写 3D 投影，可拖拽旋转 -->
+        <div class="card orb-card" data-rv>
+          <div class="card-head">
+            <span>UNGRADED GLOBE</span><span>未定形仪</span>
+          </div>
+          <canvas id="orb" width="300" height="220" aria-label="可拖拽旋转的线框球体"></canvas>
+          <div class="card-foot mono">DRAG TO ROTATE — 拖拽旋转 /// DRIFT MODE</div>
+        </div>
+
+        <!-- 卡 2：宣言卡 —— 对应海报「No turbo. No traction control. Just skill.」
+             短句节奏是这条谱系的灵魂，一句一锤 -->
+        <div class="card quote-card" data-rv data-d="1">
+          <p class="quote-en mono">
+            No template.<br>
+            No dependency.<br>
+            No definition.<br>
+            <em>That's the real blog.</em>
+          </p>
+          <p class="quote-zh">不上模板。不做加工。<br>愿被看见，不被定义。</p>
+        </div>
+
+        <!-- 卡 3：衬注卡 —— 对应「伝説は、走り続ける。」
+             日文点睛 + 中文直译，印刷海报的双语仪式感 -->
+        <div class="card caption-card mono" data-rv data-d="2">
+          <span lang="ja">未完成は、走り続ける。</span>
+          <span class="zh">未完成者，继续走。</span>
+        </div>
+      </aside>
+
+      <!-- ── 右列：像素巨字 + 大卡 ── -->
+      <div class="hero-r">
+
+        <!-- 巨字区：行1 实心锈红（CYBER 式）/ 行2 描边米黄（DRIVE 式） -->
+        <h1 class="display" data-rv>
+          <span class="display-1">UNVESSEL</span>
+          <span class="display-2" aria-label="NOT A VESSEL">NOT A VESSEL</span>
+        </h1>
+
+        <!-- 条形码分隔线：印刷品的编码仪式（inline SVG，宽度自适应） -->
+        <div class="barcode" data-rv data-d="1" aria-hidden="true">
+          <svg viewBox="0 0 600 22" preserveAspectRatio="none">
+            <!-- 变宽竖线序列：手写一组不均匀的码，越乱越像真印刷 -->
+            <g fill="currentColor">
+              <rect x="0" width="6" height="22"/><rect x="12" width="2" height="22"/>
+              <rect x="20" width="10" height="22"/><rect x="36" width="3" height="22"/>
+              <rect x="44" width="2" height="22"/><rect x="52" width="14" height="22"/>
+              <rect x="72" width="4" height="22"/><rect x="82" width="2" height="22"/>
+              <rect x="90" width="8" height="22"/><rect x="104" width="2" height="22"/>
+              <rect x="112" width="5" height="22"/><rect x="124" width="12" height="22"/>
+              <rect x="142" width="2" height="22"/><rect x="150" width="7" height="22"/>
+              <rect x="164" width="3" height="22"/><rect x="174" width="16" height="22"/>
+              <rect x="196" width="2" height="22"/><rect x="204" width="9" height="22"/>
+              <rect x="220" width="4" height="22"/><rect x="230" width="2" height="22"/>
+              <rect x="238" width="13" height="22"/><rect x="258" width="5" height="22"/>
+              <rect x="270" width="2" height="22"/><rect x="278" width="8" height="22"/>
+              <rect x="292" width="3" height="22"/><rect x="302" width="11" height="22"/>
+              <rect x="320" width="2" height="22"/><rect x="328" width="6" height="22"/>
+              <rect x="340" width="14" height="22"/><rect x="362" width="2" height="22"/>
+              <rect x="370" width="9" height="22"/><rect x="386" width="4" height="22"/>
+              <rect x="396" width="2" height="22"/><rect x="404" width="12" height="22"/>
+              <rect x="422" width="3" height="22"/><rect x="432" width="7" height="22"/>
+              <rect x="446" width="2" height="22"/><rect x="454" width="15" height="22"/>
+              <rect x="476" width="5" height="22"/><rect x="488" width="2" height="22"/>
+              <rect x="496" width="10" height="22"/><rect x="512" width="4" height="22"/>
+              <rect x="522" width="2" height="22"/><rect x="530" width="18" height="22"/>
+              <rect x="554" width="3" height="22"/><rect x="562" width="8" height="22"/>
+              <rect x="576" width="2" height="22"/><rect x="584" width="16" height="22"/>
+            </g>
+          </svg>
+          <span class="barcode-tail mono">SN-2026-004 /// UNDEFINED</span>
+        </div>
+
+        <!-- 规格大卡：对应海报「Akina 秋名山 / Night Run / AE86 / TOUGE RATING」
+             中央视觉区是本稿的标志性瞬间：像素化的「器」字 ——
+             「器」被拆成像素块且随机残缺 = 器之未成、永不定型 -->
+        <div class="card spec-card" data-rv data-d="2">
+          <div class="spec-head mono">
+            <span class="spec-place"><b>未器</b><i>UNGRADED</i></span>
+            <span class="spec-run"><b>Night Build</b><i lang="ja">ナイトビルド</i></span>
+          </div>
+
+          <!-- 像素「器」字画布：main.js 把衬线「器」栅格化为锈红像素块 -->
+          <div class="spec-stage">
+            <canvas id="px-vessel" width="360" height="360" aria-label="像素化残缺的「器」字"></canvas>
+            <span class="spec-tag mono">PURE IN MOTION<br>The vessel, undefined —<br>from 不器 to your soul.</span>
+          </div>
+
+          <div class="spec-foot">
+            <!-- 仪表读数：UNDEFINED METER（未定义度）99% —— 越高越自由 -->
+            <div class="meter-row">
+              <span class="meter-name mono">UNDEFINED METER</span>
+              <div class="meter"><i style="--w:99%"></i></div>
+              <span class="meter-val mono">99%</span>
+              <span class="meter-max mono">MAX <b>未器速</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ WORKS：DATA CARD 式规格表格 × 器物卡 ═══ -->
+    <section id="works" class="works">
+      <header class="sec-head" data-rv>
+        <h2 class="mono">/// SELECTED <b>WORKS</b></h2>
+        <span class="sec-sub">精选器物 — BUILT TO DRIFT</span>
+      </header>
+
+      <div class="work-grid">
+        <!-- 器物卡 1 -->
+        <article class="card work-card" data-rv>
+          <div class="work-no mono" aria-hidden="true">01</div>
+          <h3 class="mono">HANDCRAFT ENGINE</h3>
+          <p class="work-zh">手写引擎</p>
+          <p class="work-desc">从零手写的静态站生成管线。每一个 token、每一条动画曲线，都出自自己之手 —— 像丰田把 4A-GE 调到 8000 转。</p>
+          <div class="meters">
+            <div class="meter-row"><span class="meter-name mono">TEMPLATE</span><div class="meter"><i style="--w:0%"></i></div><span class="meter-val mono">0%</span></div>
+            <div class="meter-row"><span class="meter-name mono">HANDMADE</span><div class="meter"><i style="--w:97%"></i></div><span class="meter-val mono">97%</span></div>
+            <div class="meter-row"><span class="meter-name mono">DRIFT</span><div class="meter"><i style="--w:88%"></i></div><span class="meter-val mono">88%</span></div>
+          </div>
+          <div class="work-status mono">STATUS: <b>SHIPPED</b> /// 传说仍在继续</div>
+        </article>
+
+        <!-- 器物卡 2 -->
+        <article class="card work-card" data-rv data-d="1">
+          <div class="work-no mono" aria-hidden="true">02</div>
+          <h3 class="mono">INK VOID</h3>
+          <p class="work-zh">墨渊</p>
+          <p class="work-desc">纯黑巨字流体实验稿。视口即宣纸，字重即墨量 —— 一版被收藏进档案库的当代画廊方案。</p>
+          <div class="meters">
+            <div class="meter-row"><span class="meter-name mono">DENSITY</span><div class="meter"><i style="--w:92%"></i></div><span class="meter-val mono">92%</span></div>
+            <div class="meter-row"><span class="meter-name mono">LIGHT</span><div class="meter"><i style="--w:3%"></i></div><span class="meter-val mono">3%</span></div>
+          </div>
+          <div class="work-status mono">STATUS: <b>ARCHIVED</b> /// 走过黑夜</div>
+        </article>
+
+        <!-- 器物卡 3 -->
+        <article class="card work-card" data-rv data-d="2">
+          <div class="work-no mono" aria-hidden="true">03</div>
+          <h3 class="mono">CLAYVERSE</h3>
+          <p class="work-zh">未器之城</p>
+          <p class="work-desc">暖白黏土世界与克莱因蓝器物群。Three.js 漂浮几何 + 滚动穿越相机 —— 一版开进游乐园的方案。</p>
+          <div class="meters">
+            <div class="meter-row"><span class="meter-name mono">CURIOSITY</span><div class="meter"><i style="--w:96%"></i></div><span class="meter-val mono">96%</span></div>
+            <div class="meter-row"><span class="meter-name mono">PLAYFUL</span><div class="meter"><i style="--w:90%"></i></div><span class="meter-val mono">90%</span></div>
+          </div>
+          <div class="work-status mono">STATUS: <b>ARCHIVED</b> /// 满满玩心</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ═══ MANIFESTO：衬线巨字宣言 ═══ -->
+    <section id="manifesto" class="manifesto">
+      <p class="mani-kicker mono" data-rv>// PURITY IN MOTION — 君子不器</p>
+      <h2 class="mani-display" data-rv data-d="1">君子不器</h2>
+      <div class="mani-lines" data-rv data-d="2">
+        <p class="mono">The vessel is born for its use.<br>The unvessel is born to be undefined.</p>
+        <p class="mani-zh">器为用而生，<br>不器为自己而生。</p>
+      </div>
+    </section>
+
+    <!-- ═══ DATA CARD：把人量化成规格，再逐一反转 ═══
+         这是「不器」主题与海报仪表语言的化学反应：
+         每一行都像参数表，唯独 DEFINITION 是 NULL -->
+    <section id="datacard" class="datacard">
+      <div class="card" data-rv>
+        <div class="dc-head mono">
+          <h2><b>DATA</b> CARD</h2>
+          <span class="dc-brand" aria-hidden="true">不 /// N0T-A-V3SS3L</span>
+        </div>
+        <table class="dc-table mono">
+          <tbody>
+            <tr><th>MODEL</th><td>UNVESSEL 未器</td></tr>
+            <tr><th>ENGLISH</th><td>not a vessel</td></tr>
+            <tr><th>DEFINITION</th><td class="rust">NULL — 不被定义</td></tr>
+            <tr><th>STATUS</th><td>VISIBLE — 愿被看见</td></tr>
+            <tr><th>STACK</th><td>hand-crafted, no template</td></tr>
+            <tr><th>WEIGHT</th><td>0 dependencies of soul</td></tr>
+            <tr><th>EST.</th><td>2026 — 仍在制造</td></tr>
+            <tr><th>ORIGIN</th><td>自己的手 /// MY OWN HANDS</td></tr>
+          </tbody>
+        </table>
+        <div class="dc-foot mono">
+          <span class="flag" aria-hidden="true">▣</span>
+          <span>NOT A VESSEL // LEGENDARY</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ FOOTER：条形码收尾 ═══ -->
+    <footer class="foot">
+      <div class="foot-barcode mono" aria-hidden="true">|||| ‖| ‖ |||‖ |‖‖ || ‖||| ||‖ ||||</div>
+      <p class="foot-line mono">UNVESSEL /// NOT A VESSEL — © 2026 不器工房</p>
+      <a class="foot-top mono" href="#top">BACK TO TOP ↑</a>
+    </footer>
+
+  </main>
+
+  <noscript>
+    <!-- 无 JS 降级：线框球与像素器字不可用，排版与宣言仍然完整 -->
+    <div class="no-js-note mono">JS 已禁用 —— 仪表停摆，但宣言仍在。</div>
+  </noscript>
+
+  <script src="assets/main.js"></script>
+  <script src="assets/orb.js"></script>
+</body>
+</html>

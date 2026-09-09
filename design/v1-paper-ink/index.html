@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!-- ==========================================================================
+  unvessel · 不器 —— 首页设计稿（静态活稿）
+  预览方式：直接双击打开，或 `npx serve design -l 4173` 后访问 localhost:4173
+  说明：本稿所有区块在 Phase 1 将映射为 Astro 组件（对应关系见 design/README.md）
+=========================================================================== -->
+<html lang="zh-CN" data-theme="ink-light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>不器 · unvessel — 愿被看见，不被定义</title>
+    <meta
+      name="description"
+      content="unvessel（不器）：一个拒绝被定义的博客。写作、代码与生成艺术。"
+    />
+
+    <!-- 主题预载脚本：必须在 <head> 内同步执行，先于任何绘制设置 data-theme，
+         否则暗色用户每次进站都会被「白闪」一次 -->
+    <script>
+      ;(function () {
+        var saved = localStorage.getItem('unvessel-theme')
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.dataset.theme =
+          saved || (prefersDark ? 'ink-dark' : 'ink-light')
+      })()
+    </script>
+
+    <!-- Web 字体：思源宋体（巨字/标题）+ 思源黑体（正文）。
+         fonts.loli.net 为 Google Fonts 国内镜像，中文字体按 unicode-range 切片，
+         浏览器只下载页面实际用到的字形片段；加载失败自动回退系统栈，不阻塞渲染。
+         正式 Astro 站将改为自托管子集化 woff2（见 README 字体策略） -->
+    <link rel="preconnect" href="https://fonts.loli.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap"
+    />
+
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+
+  <body>
+    <!-- 无障碍：键盘用户可跳过导航直达正文 -->
+    <a class="skip-link" href="#main">跳到正文</a>
+
+    <!-- 墨迹画布：全屏背景动画，由 ./assets/site.js 驱动 -->
+    <canvas id="ink-canvas" aria-hidden="true"></canvas>
+
+    <!-- 纸张颗粒质感层 -->
+    <div class="grain" aria-hidden="true"></div>
+
+    <!-- ======================= 顶栏 ======================= -->
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="./index.html" aria-label="回到首页">
+          <span class="seal" aria-hidden="true">不器</span>
+          <span class="brand-name">不器</span>
+          <span class="brand-en">UNVESSEL</span>
+        </a>
+        <nav class="topnav" aria-label="主导航">
+          <a href="#posts">文章</a>
+          <a href="#" aria-disabled="true">归档</a>
+          <a href="#" aria-disabled="true">关于</a>
+          <!-- 明暗主题切换：墨白 / 墨夜 -->
+          <button class="theme-toggle" type="button" aria-label="切换明暗主题"></button>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="page">
+      <!-- ======================= Hero ======================= -->
+      <section class="hero">
+        <div class="wrap">
+          <p class="hero-kicker mono">A BLOG THAT REFUSES TO BE A VESSEL · EST. 2026</p>
+          <h1 class="hero-title">不器</h1>
+          <div class="hero-sub">
+            <span class="hero-en">unvessel</span>
+            <p class="hero-slogan">
+              愿被<span class="u-ink">看见</span>，不被<span class="u-strike">定义</span>。
+            </p>
+          </div>
+        </div>
+        <!-- 跑马灯：内容复制两份以实现无缝循环（aria-hidden 纯装饰） -->
+        <div class="marquee" aria-hidden="true">
+          <div class="marquee-track">
+            <span>愿被看见，不被定义 —— UNVESSEL —— 不器 —— NOT A VESSEL —— 愿被看见，不被定义 —— UNVESSEL —— 不器 —— NOT A VESSEL ——&nbsp;</span>
+            <span>愿被看见，不被定义 —— UNVESSEL —— 不器 —— NOT A VESSEL —— 愿被看见，不被定义 —— UNVESSEL —— 不器 —— NOT A VESSEL ——&nbsp;</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================= 近期文章 ======================= -->
+      <section id="posts" class="wrap">
+        <div class="section-head reveal">
+          <h2>近期文章</h2>
+          <span class="mono">RECENT</span>
+          <a class="more" href="#" aria-disabled="true">全部归档 →</a>
+        </div>
+
+        <!-- 编辑部式列表：序号 + 标题 + 元信息；正式站点由文章集合渲染 -->
+        <ol class="post-list">
+          <li class="post-item reveal">
+            <span class="post-index">01</span>
+            <a href="./post.html">
+              <h3 class="post-title">器与不器：为什么我把博客命名为 unvessel</h3>
+            </a>
+            <div class="post-meta mono">
+              <span>2026-09-09</span><span>创刊</span><span>约 6 分钟</span>
+            </div>
+          </li>
+          <li class="post-item reveal">
+            <span class="post-index">02</span>
+            <a href="./post.html">
+              <h3 class="post-title">墨的十种死法：一个水墨 shader 的调试笔记</h3>
+            </a>
+            <div class="post-meta mono">
+              <span>2026-09-02</span><span>工艺</span><span>约 12 分钟</span>
+            </div>
+          </li>
+          <li class="post-item reveal">
+            <span class="post-index">03</span>
+            <a href="./post.html">
+              <h3 class="post-title">愿被看见：写作是一种温柔的暴露</h3>
+            </a>
+            <div class="post-meta mono">
+              <span>2026-08-21</span><span>随笔</span><span>约 8 分钟</span>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <!-- ======================= 宣言 ======================= -->
+      <section class="wrap">
+        <div class="manifesto reveal">
+          <blockquote>
+            形而上者谓之道，形而下者谓之器。
+            我写代码，也写字；做工具，也做玩具。
+            这里收纳所有我拒绝被装进「器」里的部分——
+            它们没有固定的形状，但都真实存在。
+            <cite class="mono">—— MANIFESTO · 不器说</cite>
+          </blockquote>
+        </div>
+      </section>
+    </main>
+
+    <!-- ======================= 页脚 ======================= -->
+    <footer class="footer page">
+      <div class="wrap">
+        <span class="seal" aria-hidden="true">不器</span>
+        <span class="mono">© 2026 UNVESSEL · 由墨与代码构成</span>
+        <nav class="footer-links" aria-label="页脚链接">
+          <a href="#">RSS</a>
+          <a href="#">GITHUB</a>
+          <a href="#">EMAIL</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script src="./assets/site.js"></script>
+  </body>
+</html>

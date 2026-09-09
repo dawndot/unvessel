@@ -1,0 +1,772 @@
+/* ==========================================================================
+   unvessel · 不器 —— 设计稿样式表（静态稿）
+   --------------------------------------------------------------------------
+   定位：这是「活的设计稿」，Phase 1 会把本文件的 tokens 与组件逐块移植为
+   Astro 组件与全局样式，因此写法上刻意保持零依赖、零构建、纯原生 CSS。
+
+   设计概念：「纸 · 墨 · 朱」
+     - 纸（paper）：宣纸暖白为底，承载一切 ——「愿被看见」
+     - 墨（ink）  ：墨迹永不静止，晕染、流动、拒绝成形 ——「不被定义」
+     - 朱（朱砂） ：唯一点缀色，如印章落款，克制而醒目
+
+   目录：
+     01 设计令牌（明「墨白」/ 暗「墨夜」两套主题 + 结构性令牌）
+     02 基础重置与全局排版
+     03 颗粒质感层 与 墨迹画布层（z-index 分层说明）
+     04 顶栏（印章 logo / 导航 / 主题切换）
+     05 首页：Hero / 跑马灯
+     06 首页：文章列表（编辑部式条目，非卡片）
+     07 首页：宣言区 与 页脚
+     08 文章页：prose 正文排版系统
+     09 动效：滚动显现 / 链接下划线 / 自定义光标 / 阅读进度条
+     10 响应式 与 无障碍（prefers-reduced-motion）降级
+   ========================================================================== */
+
+/* ==========================================================================
+   01 设计令牌
+   --canvas-ink 存的是「裸 RGB 三元组」，供 JS 拼接 rgba() 使用
+   ========================================================================== */
+
+/* 明主题「墨白」：宣纸上写字 */
+:root[data-theme='ink-light'] {
+  color-scheme: light;
+  --paper: #f4efe6;               /* 宣纸底色（暖白，非纯白，避免刺眼） */
+  --ink: #211f1a;                 /* 主墨色（暖黑） */
+  --ink-2: rgba(33, 31, 26, 0.64);/* 次级文字（淡墨） */
+  --ink-3: rgba(33, 31, 26, 0.4); /* 弱化文字（飞白） */
+  --line: rgba(33, 31, 26, 0.14); /* 分隔线（细若游丝） */
+  --accent: #b5382a;              /* 朱砂红：仅用于印章/强调，绝不大面积使用 */
+  --on-accent: #f6f1e7;           /* 朱砂之上的文字色 */
+  --canvas-ink: 33, 31, 26;       /* 墨迹画布用 RGB（暖黑） */
+  --grain-opacity: 0.05;          /* 纸张颗粒强度 */
+  --grain-blend: multiply;
+  --bar-bg: rgba(244, 239, 230, 0.82); /* 顶栏毛玻璃底色 */
+}
+
+/* 暗主题「墨夜」：夜里研墨 */
+:root[data-theme='ink-dark'] {
+  color-scheme: dark;
+  --paper: #141311;
+  --ink: #e8e2d6;
+  --ink-2: rgba(232, 226, 214, 0.66);
+  --ink-3: rgba(232, 226, 214, 0.42);
+  --line: rgba(232, 226, 214, 0.15);
+  --accent: #d4553d;              /* 暗底上朱砂需提亮一档保证对比 */
+  --on-accent: #16130f;
+  --canvas-ink: 232, 226, 214;
+  --grain-opacity: 0.07;
+  --grain-blend: screen;
+  --bar-bg: rgba(20, 19, 17, 0.78);
+}
+
+/* 结构性令牌：与主题无关（间距 / 字体 / 缓动 / 版心） */
+:root {
+  /* 8px 基准的间距刻度 */
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2.5rem;
+  --space-5: 4rem;
+  --space-6: 7rem;
+
+  /* 字体栈：首选项为 Google Fonts 加载的开源字体（Noto Serif SC = 思源宋体，
+     Noto Sans SC = 思源黑体），由两个 HTML 的 <head> 通过 fonts.loli.net 镜像引入，
+     按 unicode-range 切片只下载用到的字形；加载失败逐级回退系统栈保证离线可看。
+     正式站点将换为自托管的「霞鹜文楷 / 思源宋体」中文子集 woff2（见 README） */
+  --font-serif: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', STSong,
+    SimSun, Georgia, serif;
+  --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui,
+    sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, 'JetBrains Mono',
+    monospace;
+
+  --measure: 42rem;      /* 中文正文最佳行长（约 38-42 字符） */
+  --wide: 72rem;         /* 版心宽度 */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1); /* 丝滑缓动（easeOutQuint 近似） */
+  --nav-h: 4rem;
+}
+
+/* ==========================================================================
+   02 基础重置与全局排版
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  /* html 背景色承担「页面底色」职责；
+     墨迹画布（z-index:0）浮在其上、内容（z-index:1）再浮在画布上 */
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 100%;
+  /* 平滑滚动交给 JS 之外的浏览器默认，锚点跳转更优雅 */
+  scroll-behavior: smooth;
+  /* 主题切换时颜色过渡，避免生硬跳变 */
+  transition: background-color 0.5s var(--ease), color 0.5s var(--ease);
+}
+
+body {
+  /* body 自身透明，让 html 底色与画布透出来 */
+  min-height: 100svh;
+  line-height: 1.9;              /* 中文正文行高偏大，呼吸感 */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* 主题切换由 JS 挂 cursor-none 类后才隐藏原生气泡，JS 失效则一切如常 */
+}
+
+body.cursor-none,
+body.cursor-none a,
+body.cursor-none button {
+  cursor: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* 通用版心 */
+.wrap {
+  width: min(var(--wide), 100% - 2 * var(--space-3));
+  margin-inline: auto;
+}
+
+/* 弱化小字（mono 元信息专用） */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+}
+
+/* 无障碍：跳到正文（Tab 时可见） */
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: -3rem;
+  z-index: 100;
+  padding: 0.5em 1em;
+  background: var(--accent);
+  color: var(--on-accent);
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: var(--space-2);
+}
+
+/* ==========================================================================
+   03 颗粒质感层 与 墨迹画布层
+   层级顺序（自底向上）：
+     html 底色(-1) → #ink-canvas(0) → 页面内容(1) → 颗粒(50) → 顶栏(60) → 光标(99)
+   ========================================================================== */
+
+/* 墨迹画布：由 site.js 驱动，全屏固定，模拟「墨在纸上晕开」 */
+#ink-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;          /* 不拦截任何交互 */
+}
+
+/* 纸张颗粒：SVG feTurbulence 噪声平铺，让「纸」有触感 */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+}
+
+/* 页面内容统一抬到画布之上 */
+.page {
+  position: relative;
+  z-index: 1;
+}
+
+/* ==========================================================================
+   04 顶栏
+   ========================================================================== */
+
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  transition: background-color 0.5s var(--ease);
+}
+
+.topbar .wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* 印章 logo：朱砂方印「不器」，微微歪斜像手工钤印 */
+.seal {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.1;
+  writing-mode: vertical-rl;      /* 两字竖排，如真印 */
+  letter-spacing: 0.1em;
+  border-radius: 3px;
+  transform: rotate(-3deg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  transition: transform 0.4s var(--ease);
+}
+.seal:hover {
+  transform: rotate(2deg) scale(1.04); /* 悬停时印章被「按了一下」 */
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.brand-name {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.brand-en {
+  /* 英文小字紧贴中文品牌名右侧 */
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  color: var(--ink-3);
+}
+
+.topnav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.topnav a {
+  font-size: 0.9rem;
+  letter-spacing: 0.2em;
+  color: var(--ink-2);
+  transition: color 0.3s;
+}
+.topnav a:hover {
+  color: var(--accent);
+}
+
+/* 主题切换按钮：一枚「日月」圆钮，CSS 画出半明半暗 */
+.theme-toggle {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-2);
+  background: linear-gradient(
+    90deg,
+    var(--ink) 0 50%,
+    transparent 50% 100%
+  );
+  transition: transform 0.4s var(--ease), border-color 0.3s;
+}
+.theme-toggle:hover {
+  transform: rotate(180deg);
+  border-color: var(--accent);
+}
+
+/* ==========================================================================
+   05 首页：Hero / 跑马灯
+   ========================================================================== */
+
+.hero {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: var(--nav-h);
+}
+
+.hero-kicker {
+  margin-bottom: var(--space-3);
+}
+
+/* 主标题「不器」：占满视口的宋体巨字 —— 「被看见」的第一层含义 */
+.hero-title {
+  font-family: var(--font-serif);
+  font-weight: 900;
+  font-size: clamp(6rem, 24vw, 17rem);
+  line-height: 1.02;
+  letter-spacing: 0.06em;
+  /* 墨迹感：极淡的多重投影模拟洇纸边缘 */
+  text-shadow: 0 0 1px var(--ink), 0.5px 0.5px 0 var(--ink);
+  transition: text-shadow 0.6s var(--ease);
+}
+.hero-title:hover {
+  /* 悬停时墨迹微微晕开 */
+  text-shadow: 0 0 14px rgba(var(--canvas-ink), 0.28);
+}
+
+.hero-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.hero-en {
+  font-family: var(--font-mono);
+  font-size: clamp(0.8rem, 1.6vw, 1rem);
+  letter-spacing: 0.6em;        /* 拉开的字距是「仪式感」 */
+  color: var(--ink-2);
+  text-transform: uppercase;
+}
+
+/* slogan：看见 = 朱砂下划线（强调）；定义 = 删除线（拒绝） */
+.hero-slogan {
+  font-family: var(--font-serif);
+  font-size: clamp(1.1rem, 2.4vw, 1.5rem);
+  letter-spacing: 0.14em;
+}
+.u-ink {
+  position: relative;
+  color: var(--accent);
+}
+.u-ink::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.05em;
+  height: 0.6em;
+  background: var(--accent);
+  opacity: 0.18;
+  z-index: -1;
+  transform: skewX(-12deg);
+}
+.u-strike {
+  position: relative;
+  color: var(--ink-3);
+}
+.u-strike::after {
+  content: '';
+  position: absolute;
+  left: -0.1em;
+  right: -0.1em;
+  top: 55%;
+  height: 0.08em;
+  background: var(--accent);
+  transform: rotate(-3deg);
+}
+
+/* 跑马灯：slogan 无限横移，给页面「活物感」 */
+.marquee {
+  overflow: hidden;
+  border-block: 1px solid var(--line);
+  padding-block: var(--space-2);
+  margin-top: var(--space-4);
+}
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 30s linear infinite;
+}
+.marquee-track span {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.3em;
+  color: var(--ink-2);
+  padding-right: 2em;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%); /* 轨道内容复制两份，位移一半即无缝循环 */
+  }
+}
+
+/* ==========================================================================
+   06 首页：文章列表（编辑部式条目：序号 + 标题 + 元信息，非卡片）
+   ========================================================================== */
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-block: var(--space-5) var(--space-3);
+}
+.section-head h2 {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+}
+.section-head .more {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--ink-3);
+  transition: color 0.3s;
+}
+.section-head .more:hover {
+  color: var(--accent);
+}
+
+.post-list {
+  list-style: none;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.post-item {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: var(--space-2) var(--space-3);
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+.post-index {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--ink-3);
+  padding-top: 0.45em; /* 与大标题基线对齐 */
+}
+.post-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.15rem, 2.6vw, 1.55rem);
+  font-weight: 700;
+  line-height: 1.5;
+  display: inline;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-size: 0% 2px;                 /* 下划线从 0 画到 100% */
+  background-position: 0 100%;
+  transition: background-size 0.45s var(--ease), color 0.3s;
+}
+.post-item:hover .post-title {
+  background-size: 100% 2px;               /* 朱砂下划线「写」出来 */
+  color: var(--accent);
+}
+.post-meta {
+  grid-column: 2;
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ==========================================================================
+   07 首页：宣言区 与 页脚
+   ========================================================================== */
+
+.manifesto {
+  margin-block: var(--space-6);
+  max-width: 34rem;
+}
+.manifesto blockquote {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 2.2;
+  color: var(--ink-2);
+}
+.manifesto cite {
+  display: block;
+  margin-top: var(--space-2);
+  font-style: normal;
+}
+
+.footer {
+  border-top: 1px solid var(--line);
+  padding-block: var(--space-4);
+  margin-top: var(--space-6);
+}
+.footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+.footer-links {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-3);
+}
+.footer-links a {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: var(--ink-3);
+  transition: color 0.3s;
+}
+.footer-links a:hover {
+  color: var(--accent);
+}
+
+/* ==========================================================================
+   08 文章页：prose 正文排版系统
+   ========================================================================== */
+
+/* 阅读进度条：固定在顶栏下沿，朱砂色 */
+.progress {
+  position: fixed;
+  top: var(--nav-h);
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: var(--accent);
+  z-index: 60;
+  transition: width 0.1s linear;
+}
+
+.article {
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-top: calc(var(--nav-h) + var(--space-5));
+}
+
+.article-kicker {
+  margin-bottom: var(--space-2);
+}
+.article-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.7rem, 5vw, 2.6rem);
+  font-weight: 900;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+}
+.article-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+/* 正文排版：行长、行距、段距都以中文阅读习惯校准 */
+.prose {
+  margin-top: var(--space-4);
+  font-size: 1.0625rem;
+}
+.prose p {
+  margin-block: 1.6em;
+  text-align: justify;
+}
+.prose h2 {
+  font-family: var(--font-serif);
+  font-size: 1.5em;
+  line-height: 1.5;
+  margin: 2.4em 0 1em;
+  letter-spacing: 0.05em;
+}
+.prose h3 {
+  font-family: var(--font-serif);
+  font-size: 1.2em;
+  margin: 2em 0 0.8em;
+}
+.prose blockquote {
+  margin-block: 2em;
+  padding-left: 1.4em;
+  border-left: 3px solid var(--accent);
+  font-family: var(--font-serif);
+  color: var(--ink-2);
+}
+.prose blockquote cite {
+  display: block;
+  margin-top: 0.6em;
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  letter-spacing: 0.15em;
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.5em;
+  margin-block: 1.6em;
+}
+.prose li {
+  margin-block: 0.5em;
+}
+.prose a {
+  color: var(--accent);
+  border-bottom: 1px solid currentColor;
+}
+/* 行内代码：淡墨底色圆角块 */
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: rgba(var(--canvas-ink), 0.08);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+/* 代码块：常暗「砚台」面板，明暗主题下都是深色 */
+.prose pre {
+  margin-block: 2em;
+  padding: 1.2em 1.4em;
+  background: #1d1b17;
+  color: #e8e2d6;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.9;
+  box-shadow: inset 0 0 0 1px rgba(232, 226, 214, 0.12);
+}
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+/* 插图：配 mono 图注 */
+.prose figure {
+  margin-block: 2.4em;
+}
+.prose figcaption {
+  margin-top: var(--space-1);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.15em;
+  color: var(--ink-3);
+}
+.prose .enso {
+  width: 180px;
+  margin-inline: auto;
+  color: var(--ink);
+}
+/* 分隔符：居中朱砂小点 */
+.prose hr {
+  border: none;
+  text-align: center;
+  margin-block: 3em;
+}
+.prose hr::after {
+  content: '◦ ● ◦';
+  color: var(--accent);
+  letter-spacing: 0.8em;
+  font-size: 0.7rem;
+}
+
+/* 上一篇 / 下一篇 */
+.post-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-block: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+.post-nav a {
+  display: block;
+}
+.post-nav .next {
+  text-align: right;
+}
+.post-nav .dir {
+  display: block;
+  margin-bottom: 0.3em;
+}
+.post-nav .t {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  transition: color 0.3s;
+}
+.post-nav a:hover .t {
+  color: var(--accent);
+}
+
+/* ==========================================================================
+   09 动效
+   ========================================================================== */
+
+/* 滚动显现：默认隐藏，JS 加 .is-visible 后浮现 */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.9s var(--ease), transform 0.9s var(--ease);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* 自定义光标：小点即时跟随 + 圆环惯性跟随（JS 注入，仅精确指针设备） */
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 99;
+  pointer-events: none;
+  border-radius: 50%;
+  mix-blend-mode: difference;   /* 差值混合：明暗主题下都可见 */
+}
+.cursor-dot {
+  width: 6px;
+  height: 6px;
+  background: #f4efe6;
+}
+.cursor-ring {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(244, 239, 230, 0.8);
+  transition: transform 0.15s ease-out;
+}
+
+/* ==========================================================================
+   10 响应式 与 无障碍降级
+   ========================================================================== */
+
+@media (max-width: 640px) {
+  /* 窄屏：序号上移到标题上方，退化为单列 */
+  .post-item {
+    grid-template-columns: 1fr;
+  }
+  .post-index {
+    padding-top: 0;
+  }
+  .post-meta {
+    grid-column: 1;
+  }
+  /* 窄屏隐藏英文品牌副标，给导航让位 */
+  .brand-en {
+    display: none;
+  }
+}
+
+/* 用户偏好减少动态：关闭一切位移与循环动画（无障碍底线） */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .marquee-track {
+    animation: none;
+  }
+  .hero-title,
+  .hero-title:hover {
+    text-shadow: none;
+  }
+}

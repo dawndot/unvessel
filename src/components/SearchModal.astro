@@ -1,0 +1,38 @@
+<!-- ============================================================
+     SearchModal.astro — 墨渊站内检索浮层
+     ============================================================
+     数据源：Pagefind 构建期索引（npm run build 时扫 dist 生成 /pagefind/）。
+     交互逻辑全部在 src/scripts/main.js 的 initSearch()：
+       - 唤起：Ctrl/⌘+K、"/"（非输入态）、顶栏「检索」按钮
+       - 关闭：ESC、点击遮罩
+       - 选择：↑↓ 移动，↵ 经 ClientRouter navigate 跳转（墨画布不断帧）
+     本组件只负责静态骨架；dev 环境无 /pagefind/，加载失败时静默降级
+     （浮层能开，提示「索引不可用」），build/preview 与线上一切正常。
+     ============================================================ -->
+
+<div class="search" id="search" hidden>
+  <!-- 遮罩：点击即关 -->
+  <div class="search__scrim" data-search-close aria-hidden="true"></div>
+
+  <!-- 面板：输入行 / 结果列表 / 键位提示，三段式与站内网格同源 -->
+  <div class="search__panel" role="dialog" aria-modal="true" aria-label="站内检索">
+    <div class="search__bar">
+      <span class="search__glyph" aria-hidden="true">⌕</span>
+      <input
+        class="search__input"
+        type="text"
+        placeholder="检索墨渊 …"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="检索关键词"
+      />
+      <button class="search__esc" type="button" data-search-close aria-label="关闭检索">ESC</button>
+    </div>
+    <ul class="search__results" id="search-results"></ul>
+    <div class="search__hint" aria-hidden="true">
+      <span>↑↓ 选择</span>
+      <span>↵ 打开</span>
+      <span>ESC 关闭</span>
+    </div>
+  </div>
+</div>

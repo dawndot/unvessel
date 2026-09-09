@@ -1,0 +1,77 @@
+---
+// ============================================================
+// posts/[...slug].astro — 文章详情页
+// ============================================================
+// 路径：/posts/<文件名>/（glob loader 的 id 即文件名）。
+// 结构：文章头（编号/日期/标签 + 巨标题 + 导语）→ 正文 → 文末返回。
+// ============================================================
+
+import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Comments from '../../components/Comments.astro';
+import Metrics from '../../components/Metrics.astro';
+import { formatDate } from '../../lib/utils';
+
+export async function getStaticPaths() {
+  // 只为非草稿文章生成静态页
+  const posts = await getCollection('posts', ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate, tags } = post.data;
+const { Content } = await render(post);
+
+// 文章编号 = 全站总序（倒序位次），展示用
+const all = (await getCollection('posts', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
+---
+
+<Base
+  title={`${title} — unvessel 不器`}
+  description={description}
+  ogType="article"
+  publishedTime={pubDate}
+>
+  <!--
+    文章头：data-pagefind-body 把此区块标记进搜索索引
+    （Pagefind 规则：站点内任何页面带此标记后，未标记页面一律不入索引
+    → 只有文章页进索引，首页/列表/关于页天然排除）。
+    h1 自动成为结果标题，data-pagefind-meta 补充日期供结果行展示。
+  -->
+  <header class="post-head" data-pagefind-body>
+    <div class="post-head__meta">
+      <span class="accent">FILE {idx}</span>
+      <time datetime={pubDate.toISOString()} data-pagefind-meta="date">{formatDate(pubDate)}</time>
+      {tags.length > 0 && <span>{tags.join(' / ')}</span>}
+    </div>
+    <h1 class="post-head__title" data-rv style="--d:.06s">{title}</h1>
+    <p class="post-head__desc" data-rv style="--d:.16s">{description}</p>
+  </header>
+
+  <!-- ===== 正文 ===== -->
+  <article class="prose-wrap" data-pagefind-body>
+    <div class="prose">
+      <Content />
+    </div>
+  </article>
+
+  <!-- ===== 阅读量 / 点赞（API 缺席时自动隐藏，见 api/metrics.ts） ===== -->
+  <Metrics slug={post.id} />
+
+  <!-- ===== 评论区（Giscus；site.ts 未配置时构建期整体省略） ===== -->
+  <Comments />
+
+  <!-- ===== 文末返回 ===== -->
+  <nav class="post-foot" aria-label="文章导航">
+    <div class="post-foot__inner">
+      <a class="post-foot__back" href="/posts/">← 返回全部文章</a>
+      <span class="post-foot__back">INK VOID</span>
+    </div>
+  </nav>
+</Base>

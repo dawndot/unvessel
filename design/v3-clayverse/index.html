@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>不器 unvessel — 未器之城 CLAYVERSE（概念稿 v3）</title>
+  <meta name="description" content="unvessel 不器 · 愿被看见，不被定义 —— 3D 黏土世界概念稿" />
+
+  <!--
+    ============================================================
+    v3「未器之城 CLAYVERSE」单页概念稿
+    与 v1（宣纸文艺）/ v2（墨渊黑）完全反差的第三方向：
+    暖白雾色黏土世界 + 克莱因蓝点睛 + Three.js 漂浮器物群
+    ============================================================
+  -->
+
+  <!-- Web 字体：Space Grotesk（拉丁标题，几何感）+ Space Mono（HUD 标签）+ 思源黑体（中文，轻字重路线）
+       与 v2 的 Anton / Noto Sans SC 900 巨字路线刻意区隔：v3 走轻盈几何，不做视口级巨字 -->
+  <link rel="stylesheet"
+    href="https://fonts.loli.net/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono&family=Noto+Sans+SC:wght@400;500;700&display=swap" />
+
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+  <!-- 3D 画布：固定在最底层，滚动驱动相机在漂浮器物群中穿行
+       Three.js 由 scene.js 动态 import，CDN 失败时自动加 body.no-3d 走纯排版降级 -->
+  <canvas id="scene" aria-hidden="true"></canvas>
+
+  <!-- 顶栏：品牌 / 导航 / 状态点（三段式，但气质走轻盈 pill 而非 v2 的发丝线锐利） -->
+  <header class="topbar">
+    <a class="brand" href="#">
+      <!-- 克莱因蓝圆点：v3 的品牌记号（v2 是朱砂方点，刻意反转圆/方） -->
+      <span class="brand__dot" aria-hidden="true"></span>
+      <span class="brand__zh">不器</span>
+      <span class="brand__en">UNVESSEL</span>
+    </a>
+
+    <nav class="nav" aria-label="主导航">
+      <a class="nav__link" href="#works"><i>01</i>作品</a>
+      <a class="nav__link" href="#manifesto"><i>02</i>宣言</a>
+      <a class="nav__link" href="#about"><i>03</i>关于</a>
+    </nav>
+
+    <div class="status">
+      <span class="status__pulse" aria-hidden="true"></span>
+      <span class="status__text">CLAYVERSE // BUILD 003</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============ HERO：标题层悬浮在 3D 世界之上 ============ -->
+    <section class="hero">
+      <p class="hero__kicker" data-rv>
+        <span class="tick" aria-hidden="true"></span>
+        A PERSONAL UNIVERSE — 每一件作品都是一个未完成的容器
+      </p>
+
+      <h1 class="hero__title" data-rv style="--d:.08s">
+        <!-- 拉丁行：几何无衬线大字（非巨字，给 3D 留呼吸空间） -->
+        <span class="hero__latin">UNVESSEL</span>
+        <!-- 中文行：蓝色高亮块点睛，替代 v2 的朱砂划线 -->
+        <span class="hero__zh"><em>不器</em>——愿被看见，不被定义</span>
+      </h1>
+
+      <p class="hero__hint" data-rv style="--d:.16s">
+        <span class="hero__hint-arrow" aria-hidden="true">↓</span>
+        滚动，在器物之间穿行 · 点击漂浮物试试
+      </p>
+    </section>
+
+    <!-- ============ WORKS：白瓷卡片列表（v2 是黑底整行反黑，v3 反转为圆角浮卡） ============ -->
+    <section class="works" id="works">
+      <header class="sec-head" data-rv>
+        <span class="sec-head__pill">01 / WORKS</span>
+        <h2>正在成形的东西</h2>
+      </header>
+
+      <div class="cards">
+        <a class="card" href="#" data-rv>
+          <span class="card__no">01</span>
+          <span class="card__body">
+            <span class="card__title">未完成的容器</span>
+            <span class="card__meta">长文 · 设计随笔 — 关于「为什么我拒绝给自己定型」</span>
+          </span>
+          <span class="card__arrow" aria-hidden="true">→</span>
+        </a>
+
+        <a class="card" href="#" data-rv style="--d:.06s">
+          <span class="card__no">02</span>
+          <span class="card__body">
+            <span class="card__title">漂浮的形状</span>
+            <span class="card__meta">视觉实验 — WebGL / 生成艺术 / 手感记录</span>
+          </span>
+          <span class="card__arrow" aria-hidden="true">→</span>
+        </a>
+
+        <a class="card" href="#" data-rv style="--d:.12s">
+          <span class="card__no">03</span>
+          <span class="card__body">
+            <span class="card__title">数字花园</span>
+            <span class="card__meta">持续生长的公开笔记 — 永远处于未完成时态</span>
+          </span>
+          <span class="card__arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ============ MANIFESTO：宣言（滚动终点，蓝色大扭结正对此区背景） ============ -->
+    <section class="manifesto" id="manifesto">
+      <span class="sec-head__pill" data-rv>02 / MANIFESTO</span>
+      <blockquote class="manifesto__quote" data-rv style="--d:.08s">
+        君子不器。
+        <cite>——《论语·为政》</cite>
+      </blockquote>
+      <p class="manifesto__text" data-rv style="--d:.16s">
+        器有定形，装满了就再装不下别的。
+        我宁愿做一团<em>还在变化的黏土</em>：
+        被看见，但不被定义；被使用，但不被用完。
+      </p>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="footer" id="about">
+      <div class="footer__grid">
+        <div class="footer__col">
+          <span class="sec-head__pill">03 / ABOUT</span>
+          <p class="footer__sig">不器 unvessel<br />愿被看见，不被定义。</p>
+        </div>
+        <div class="footer__col">
+          <a href="#">RSS</a>
+          <a href="#">GitHub</a>
+          <a href="#">Email</a>
+        </div>
+        <div class="footer__col footer__col--right">
+          <span>© 2026 — 概念稿 v3 · CLAYVERSE</span>
+        </div>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- 无 JS / WebGL 失败时的兜底提示（scene.js 会给 body 加 no-3d，画布隐藏，纯排版依然成立） -->
+  <noscript>
+    <div class="no3d-note">本页的 3D 世界需要 JavaScript；文字内容不受影响。</div>
+  </noscript>
+
+  <script src="assets/main.js"></script>
+  <script type="module" src="assets/scene.js"></script>
+</body>
+</html>
