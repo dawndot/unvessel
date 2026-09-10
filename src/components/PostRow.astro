@@ -1,12 +1,12 @@
 ---
 // ============================================================
-// PostRow.astro — 文章列表行（v2 签名交互：朱砂底整行反白）
+// PostRow.astro — 文章列表行（克制悬停：标题转朱砂 + 左缘细线）
 // ============================================================
 // 使用处：首页「最新文章」与 /posts/ 列表页。
 // 传入内容集合条目与展示序号，内部只做展示格式化。
 // ============================================================
 
-import { formatDate } from '../lib/utils';
+import { formatDate, postUid } from '../lib/utils';
 
 interface Props {
   /** 内容集合条目（posts collection） */
@@ -16,7 +16,7 @@ interface Props {
 }
 
 const { post, idx } = Astro.props;
-const { title, description, pubDate, tags, draft } = post.data;
+const { title, description, pubDate, tags, draft, pinned } = post.data;
 
 /** 标签列：无标签显示占位符，保持网格列不塌 */
 const cat = tags.length > 0 ? tags.join(' / ') : '—';
@@ -25,10 +25,14 @@ const flag = draft ? ' [草稿]' : '';
 ---
 
 <li>
-  <a class="row" href={`/posts/${post.id}/`}>
+  <a class="row" href={`/posts/${postUid(post)}/`}>
     <span class="row__idx">{String(idx).padStart(3, '0')}</span>
     <span class="row__main">
-      <span class="row__title">{title}{flag}</span>
+      <span class="row__title">
+        {/* 置顶标记：pinned 时在标题前挂朱砂细框小标（schema 里 pinned: true 即生效） */}
+        {pinned && <span class="row__pin">置顶</span>}
+        {title}{flag}
+      </span>
       <span class="row__sub">{description}</span>
     </span>
     <span class="row__cat">{cat}</span>

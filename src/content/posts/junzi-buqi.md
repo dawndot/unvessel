@@ -4,6 +4,10 @@ description: 重读《易·系辞》「形而上者谓之道，形而下者谓�
 pubDate: 2026-09-08
 tags: [读书, 随笔]
 draft: false
+# 置顶：列表（首页最新文章 + /posts/）永远排最前，带朱砂「置顶」小标
+pinned: true
+# 短链 ID：文章 URL = /posts/<uid>/，与文件名解耦（改名/调整文件名不断链）
+uid: v5r8w2
 ---
 
 《周易·系辞上》：

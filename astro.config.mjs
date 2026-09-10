@@ -19,7 +19,7 @@ export default defineConfig({
   integrations: [sitemap()],
 
   // Markdown：GitHub 风格语法；代码高亮用 shiki 的双主题
-  //（墨渊只有黑，两态都给暗色，避免高亮层颜色跳出气质）。
+  //（站点只有黑，两态都给暗色，避免高亮层颜色跳出气质）。
   markdown: {
     shikiConfig: {
       themes: {

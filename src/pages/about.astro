@@ -1,68 +1,107 @@
 ---
 // ============================================================
-// about.astro — 关于 / 宣言页
+// about.astro — 关于页
 // ============================================================
-// 页头巨字「宣言」+ 扩展版宣言正文 + 联络。
-// 这是站点气质的「立场说明书」。
+// 定位：纯「关于」页（宣言已按用户决策砍掉——slogan 只在
+// 页头 meta 与页脚出现，不再整页铺陈形而上正文）。
+// 结构：页头「关于」→ 站点自介（这是哪 / 有什么 / 怎么建的）
+//       → 站点统计面板（纯静态实算）→ 联络。
+// 注：写作热力图已移除（2026-09-10 用户决策：与 /logs/ 重复，热力图归日志页专属）。
+// 统计数字全部由内容集合构建期计算（不硬编码）：文章/日志/作品/照片/字数/建站天数。
+// 照片数走 scanPhotos()（构建期扫描 public/photos/，与相册页同源）。
 // ============================================================
 
+import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
+import { PROFILE, daysSinceFounded } from '../data/profile';
+import { WORKS } from '../data/works';
+import { scanPhotos } from '../data/photos';
+import { countWords } from '../lib/activity';
 
-/** 联络（与 Base.astro 保持一致） */
-const EMAIL = 'hi@unvessel.me';
+// —— 统计数据源（与页面展示同口径：非草稿） ——
+const posts = await getCollection('posts', ({ data }) => !data.draft);
+const logs = await getCollection('logs', ({ data }) => !data.draft);
+const photoCount = scanPhotos().length;
+
+const totalWords = posts.reduce((sum, p) => sum + countWords(p.body), 0);
+
+/** 统计卡片（数字构建期实算，随内容增长自动变化） */
+const stats = [
+  { label: '文章', en: 'POSTS', value: String(posts.length).padStart(2, '0') },
+  { label: '日志', en: 'LOGS', value: String(logs.length).padStart(2, '0') },
+  { label: '作品', en: 'WORKS', value: String(WORKS.length).padStart(2, '0') },
+  { label: '照片', en: 'PHOTOS', value: String(photoCount).padStart(2, '0') },
+  { label: '字数', en: 'WORDS', value: String(totalWords) },
+  { label: '建站', en: 'DAYS', value: `${daysSinceFounded()}天` },
+];
 ---
 
-<Base title="宣言 — unvessel 不器" description="君子不器。愿被看见，不被定义。">
+<Base title="关于 — unvessel 不器" description="不器的自留地：愿被看见，不被定义。">
   <!-- ===== 页头 ===== -->
   <header class="page-head">
     <p class="page-head__kicker" data-rv>
       <span class="kdot" aria-hidden="true"></span>
-      MANIFESTO — 宣言
+      ABOUT — 关于
     </p>
-    <h1 class="page-head__title" aria-label="宣言">
-      <span data-rv style="--d:.08s">宣</span><span class="hollow" data-rv style="--d:.18s">言</span>
+    <h1 class="page-head__title" aria-label="关于">
+      <span data-rv style="--d:.08s">关</span><span class="hollow" data-rv style="--d:.18s">于</span>
     </h1>
     <p class="page-head__meta" data-rv style="--d:.28s">
-      <span>形而上者谓之道</span>
-      <span>INK VOID / 墨渊</span>
+      <span>{PROFILE.slogan}</span>
+      <span>UNVESSEL / {PROFILE.zhName}</span>
     </p>
   </header>
 
-  <!-- ===== 宣言正文 ===== -->
+  <!-- ===== 站点自介：这是哪 / 有什么 / 怎么建的 ===== -->
   <section class="prose-wrap" style="padding-top: 0;">
     <div class="prose prose--wide">
-      <p class="manifesto__l1" style="font-size: clamp(40px, 7vw, 96px); margin-bottom: 0.6em;">
-        君子<span class="hollow">不器</span>
-      </p>
-      <p class="manifesto__l2" style="margin: 0 0 2em;">《周易·系辞上》——形而上者谓之道，形而下者谓之器</p>
-
       <p>
-        <strong>「器」是被形状规定的东西</strong>——杯子只能盛水，琴只能发声。
-        把一个人叫作「器」，就是默认他该待在某个格子里，直到磨损为止。
+        这里是<strong>{PROFILE.zhName}（{PROFILE.name}）</strong>的自留地。
+        名字取自《周易·系辞上》那句「君子不器」——不被装进格子，不被一种手艺定型；
+        unvessel 的字面意思是「非容器」，同一个意思的英文写法。
       </p>
       <p>
-        unvessel 的字面意思是「非容器」：拒绝被装满，拒绝被定型。
-        中文名取自两千年前那句抵抗——君子不器。
+        写技术与随笔，做东西，也拍照片。这里的一切都长在明面上：
+        <a href="/posts/">文章</a>、<a href="/works/">作品</a>、<a href="/photos/">相册</a>、
+        <a href="/logs/">日志</a>，以及下面这些由内容自身长出的数字。
       </p>
 
-      <h2>信条</h2>
-      <ul>
-        <li>愿被看见——所以持续书写，留下可见的痕迹；</li>
-        <li>不被定义——所以拒绝一切现成的模板与标签；</li>
-        <li>工具为思想让路——技术是墨，不是枷锁。</li>
-      </ul>
-
-      <h2>这里有什么</h2>
+      <h2>怎么建的</h2>
       <p>
-        写作（技术与随笔）、实验（交互与视觉的边界）、宣言（不定期的立场重申）。
-        本站由 Astro 构建，纯静态输出，为 AI 协作留有完整运营接口——
+        Astro 纯静态输出，无追踪脚本、无访客画像；视觉是自研的纯黑系统
+        ——纯黑画布、流体墨与朱砂一点。站点为 AI 协作留有完整运营接口，
         也许你读到的某一篇，正是一次人机协作的痕迹。
       </p>
+    </div>
+  </section>
 
+  <!-- ===== 站点统计面板（访客记录：聚合统计，不追踪任何个人） ===== -->
+  <section class="about-stats" aria-labelledby="about-stats-label">
+    <p class="about-stats__label" id="about-stats-label" data-rv>
+      BY THE NUMBERS<span>站点统计 · 数据随每次构建实算</span>
+    </p>
+    <dl class="stats-grid">
+      {stats.map((s) => (
+        <div class="stat" data-rv>
+          <dt class="stat__value">{s.value}</dt>
+          <dd class="stat__label">{s.label}<i>{s.en}</i></dd>
+        </div>
+      ))}
+    </dl>
+    <p class="about-stats__note">
+      本站不放置追踪脚本、不采集访客画像。「访客记录」只有这些由内容自身长出的数字。
+    </p>
+  </section>
+
+  <!-- ===== 联络 ===== -->
+  <section class="prose-wrap">
+    <div class="prose prose--wide">
       <h2>联络</h2>
       <p>
-        邮件：<a href={`mailto:${EMAIL}`}>{EMAIL}</a>。
+        邮件：<a href={`mailto:${PROFILE.email}`}>{PROFILE.email}</a>。
         不闲聊，但认真回复每一封认真的信。
+        订阅更新：<a href={PROFILE.links.rss}>RSS</a>。
+        {PROFILE.links.github && <>代码与日常：<a href={PROFILE.links.github} target="_blank" rel="noopener noreferrer">GitHub</a>。</>}
       </p>
 
       <hr />

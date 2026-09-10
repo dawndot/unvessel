@@ -4,10 +4,14 @@
   "description": "unvessel / 不器 — 愿被看见，不被定义。纯黑渊面个人博客，AI 可自动运营。",
   "type": "module",
   "private": true,
+  "bin": {
+    "unvessel": "bin/unvessel.mjs",
+    "unv": "bin/unvessel.mjs"
+  },
   "scripts": {
-    "dev": "astro dev",
+    "dev": "astro dev --host",
     "build": "astro build && pagefind --site dist",
-    "preview": "astro preview",
+    "preview": "astro preview --host",
     "new": "node scripts/new-post.mjs",
     "mcp": "node scripts/mcp-server.mjs"
   },

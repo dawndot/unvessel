@@ -51,7 +51,7 @@ const { slug } = Astro.props;
     const likeBtn = document.getElementById('metrics-like') as HTMLButtonElement | null;
     if (!slug || !viewsEl || !likesEl || !likeBtn) return;
 
-    /** 展示层：数字补零成 4 位等宽（0021），墨渊元信息的既有语言 */
+    /** 展示层：数字补零成 4 位等宽（0021），站内元信息的既有语言 */
     const pad = (n: number) => String(Math.max(0, n)).padStart(4, '0');
 
     /** 已赞判定：localStorage 持久（赞过就是赞过） */

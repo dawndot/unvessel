@@ -21,7 +21,7 @@ export const GISCUS = {
   categoryId: '',
   /** 评论与页面的映射方式：pathname = 按路径一一对应（文章路径即讨论锚点） */
   mapping: 'pathname',
-  /** 主题：transparent_dark 透明底暗色，贴合墨渊纯黑画布 */
+  /** 主题：transparent_dark 透明底暗色，贴合站点纯黑画布 */
   theme: 'transparent_dark',
   /** 评论界面语言 */
   lang: 'zh-CN',

@@ -2,7 +2,8 @@
 // ============================================================
 // posts/[...slug].astro — 文章详情页
 // ============================================================
-// 路径：/posts/<文件名>/（glob loader 的 id 即文件名）。
+// 路径：/posts/<短链 uid>/（frontmatter uid 优先，文件名哈希兜底，
+// 取值函数见 src/lib/utils.ts 的 postUid——全站链接唯一来源）。
 // 结构：文章头（编号/日期/标签 + 巨标题 + 导语）→ 正文 → 文末返回。
 // ============================================================
 
@@ -10,19 +11,23 @@ import { getCollection, render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import Comments from '../../components/Comments.astro';
 import Metrics from '../../components/Metrics.astro';
-import { formatDate } from '../../lib/utils';
+import { formatDate, postUid } from '../../lib/utils';
 
 export async function getStaticPaths() {
   // 只为非草稿文章生成静态页
   const posts = await getCollection('posts', ({ data }) => !data.draft);
+  // 路由参数 = 短链 ID（postUid：显式 uid 优先 / 文件名哈希兜底），
+  // 与列表页、RSS、计数器的取值同源，保证 /posts/<uid>/ 全站一致。
   return posts.map((post) => ({
-    params: { slug: post.id },
+    params: { slug: postUid(post) },
     props: { post },
   }));
 }
 
 const { post } = Astro.props;
-const { title, description, pubDate, tags } = post.data;
+// cover：frontmatter 头图（可选）。三处联动：
+// 文章页头图展示 / og:image 分享卡 / 首页精选大卡（首页自己读）
+const { title, description, pubDate, tags, cover } = post.data;
 const { Content } = await render(post);
 
 // 文章编号 = 全站总序（倒序位次），展示用
@@ -37,6 +42,7 @@ const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
   description={description}
   ogType="article"
   publishedTime={pubDate}
+  ogImage={cover}
 >
   <!--
     文章头：data-pagefind-body 把此区块标记进搜索索引
@@ -54,6 +60,16 @@ const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
     <p class="post-head__desc" data-rv style="--d:.16s">{description}</p>
   </header>
 
+  <!--
+    头图（cover）：frontmatter 配了才渲染；细线框裁切与站内卡片同语言，
+    宽幅 21:9 附近取高，导语与正文之间像一幕定场镜头。
+  -->
+  {cover && (
+    <figure class="post-cover">
+      <img src={cover} alt="" loading="eager" decoding="async" />
+    </figure>
+  )}
+
   <!-- ===== 正文 ===== -->
   <article class="prose-wrap" data-pagefind-body>
     <div class="prose">
@@ -62,7 +78,7 @@ const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
   </article>
 
   <!-- ===== 阅读量 / 点赞（API 缺席时自动隐藏，见 api/metrics.ts） ===== -->
-  <Metrics slug={post.id} />
+  <Metrics slug={postUid(post)} />
 
   <!-- ===== 评论区（Giscus；site.ts 未配置时构建期整体省略） ===== -->
   <Comments />
@@ -71,7 +87,7 @@ const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
   <nav class="post-foot" aria-label="文章导航">
     <div class="post-foot__inner">
       <a class="post-foot__back" href="/posts/">← 返回全部文章</a>
-      <span class="post-foot__back">INK VOID</span>
+      <span class="post-foot__back">UNVESSEL</span>
     </div>
   </nav>
 </Base>

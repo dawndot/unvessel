@@ -22,13 +22,14 @@
 // 工具面（刻意保持最小，详见 docs/AI-OPS.md）：
 //   list_posts  列出全部文章（含草稿状态）
 //   new_post    创建文章草稿（frontmatter 模板兜底）
+//   new_idea    记一条灵感（自留地念头区，纯文本即内容，落盘即上线）
 //   build_site  构建站点 = 最终校验（zod schema 失败即构建失败）
 // ============================================================
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { listPosts, createPost, buildSite, POSTS_DIR } from './lib/ops.mjs';
+import { listPosts, createPost, createIdea, buildSite, POSTS_DIR } from './lib/ops.mjs';
 
 // ---- 服务器声明 ----
 const server = new McpServer({
@@ -100,7 +101,39 @@ server.registerTool(
   }
 );
 
-// ---- 工具 3：build_site ----
+// ---- 工具 3：new_idea ----
+server.registerTool(
+  'new_idea',
+  {
+    title: '记一条灵感',
+    description:
+      '在 src/content/ideas/ 下记一条灵感碎片（自留地 /garden/ 念头区）。内容为纯文本（可含换行），落盘即上线，无需编辑正文。文件名 = 秒级时间戳，同秒连记自动追加序号去重。',
+    inputSchema: {
+      text: z.string().describe('灵感内容（必填，纯文本，可含换行）'),
+      mood: z.string().optional().describe('一句话心情/语境标签（可选）'),
+      image: z.string().optional().describe('配图 URL（可选）'),
+      link: z.string().optional().describe('相关链接 URL（可选）'),
+      draft: z.boolean().optional().describe('true = 草稿（站点不显示）；缺省/false = 直接上线'),
+    },
+  },
+  async ({ text, mood, image, link, draft }) => {
+    try {
+      const { file, path } = createIdea({ text, mood, image, link, draft });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `已记下：${file}\n路径：${path}\n灵感为纯文本展示，无需编辑；build_site 后出现在 /garden/ 灵感时间线。`,
+          },
+        ],
+      };
+    } catch (err) {
+      return { isError: true, content: [{ type: 'text', text: `失败：${err.message}` }] };
+    }
+  }
+);
+
+// ---- 工具 4：build_site ----
 server.registerTool(
   'build_site',
   {
@@ -120,4 +153,4 @@ server.registerTool(
 
 // ---- 启动：stdio 传输（MCP 标准接入方式） ----
 await server.connect(new StdioServerTransport());
-console.error('[unvessel-ops] MCP server 已启动（stdio），工具：list_posts / new_post / build_site');
+console.error('[unvessel-ops] MCP server 已启动（stdio），工具：list_posts / new_post / new_idea / build_site');

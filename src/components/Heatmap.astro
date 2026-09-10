@@ -1,0 +1,67 @@
+---
+// ============================================================
+// Heatmap.astro — 写作活动热力图（GitHub 式 53 周 × 7 天）
+// ============================================================
+// 纯静态：数据由 lib/activity.ts 在构建期聚合（文章 + 日志日期），
+// 组件只负责渲染网格。色阶 = 骨白四级深浅，level 4（高产日）为朱砂——
+// 全站「朱砂出现即强调」纪律的延续。
+// 周一起列（中文习惯）；移动端整图横向滚动，不缩成糊点。
+// ============================================================
+
+import type { Activity } from '../lib/activity';
+
+interface Props {
+  /** buildActivity() 的产出 */
+  activity: Activity;
+}
+
+const { activity } = Astro.props;
+
+/** 星期刻度：7 行中只标 一/三/五/日，避免拥挤（与 GitHub 标 一/三/五 同理） */
+const dayTicks = ['一', '', '三', '', '五', '', '日'];
+---
+
+<figure class="heatmap" aria-label={`写作活动热力图：近一年活跃 ${activity.activeDays} 天，共 ${activity.total} 篇`}>
+  {/* 月份刻度行：按列偏移绝对落位 */}
+  <div class="heatmap__months" aria-hidden="true">
+    {activity.monthLabels.map((m) => (
+      <span style={`grid-column:${m.col + 2}`}>{m.label}</span>
+    ))}
+  </div>
+
+  <div class="heatmap__body">
+    {/* 星期刻度列 */}
+    <div class="heatmap__dow" aria-hidden="true">
+      {dayTicks.map((t) => <span>{t}</span>)}
+    </div>
+
+    {/* 网格：每列一周 */}
+    <div class="heatmap__grid" role="img" aria-label={`活跃 ${activity.activeDays} 天，共 ${activity.total} 篇产出`}>
+      {activity.weeks.map((week) => (
+        <div class="heatmap__col">
+          {week.map((day) =>
+            day ? (
+              <i
+                class={`heatmap__cell l${day.level}`}
+                title={day.count > 0 ? `${day.date} · ${day.count} 篇产出` : `${day.date} · 无产出`}
+              ></i>
+            ) : (
+              <i class="heatmap__cell heatmap__cell--future" aria-hidden="true"></i>
+            )
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <figcaption class="heatmap__legend">
+    <span>活跃 {activity.activeDays} 天 · 共 {activity.total} 篇</span>
+    <span class="heatmap__scale" aria-hidden="true">
+      少
+      <i class="heatmap__cell l0"></i><i class="heatmap__cell l1"></i>
+      <i class="heatmap__cell l2"></i><i class="heatmap__cell l3"></i>
+      <i class="heatmap__cell l4"></i>
+      多
+    </span>
+  </figcaption>
+</figure>

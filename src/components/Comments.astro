@@ -1,14 +1,19 @@
 ---
 // ============================================================
-// Comments.astro — Giscus 评论（占位开关组件）
+// Comments.astro — Giscus 评论（双态组件：已点亮 / 未点亮指引）
 // ============================================================
-// 降级策略（最严格形态）：site.ts 的 GISCUS 未配置齐全时，
-// giscusEnabled = false → 本组件构建期输出为空，
-// 产物里没有评论区 DOM、没有挂载脚本、没有任何外部请求；
-// 配置齐全后重建，评论区在文章页「文末返回」上方出现。
+// 状态一（已点亮）：site.ts 的 GISCUS 四要素配置齐全时，
+// 渲染真实评论区：发丝线标签「附录 · 议论」+ giscus 挂载脚本。
+//
+// 状态二（未点亮）：配置不全时渲染「议论未点亮」指引面板——
+// 不再是构建期整体消失（旧策略），而是像相册「胶卷未装」一样
+// 呈现真实状态：面板说明评论区存在、只是尚未点亮，并给出
+// 点亮步骤。纯静态产物里依然零外部请求（无 giscus 脚本）。
 //
 // 脚本形态说明：采用「条件输出的 inline script」而非 processed module——
-// 1. 条件输出：整个 <script> 写在 giscusEnabled && 表达式里，
+// 注意：本注释内切勿出现裸的 script 开标签文本（写成「script 标签」），
+// Vite dev 的 esbuild 依赖扫描以标签匹配提取脚本，会误吞注释残片导致扫描报错；
+// 1. 条件输出：整个脚本标签写在已点亮分支里，
 //    未配置时连脚本文本都不进产物（processed script 无论模板条件都会打包）；
 // 2. 换页友好：inline script 随 HTML 每页重新执行，天然适配
 //    ClientRouter 换页（无需 astro:page-load 重入监听）；
@@ -18,7 +23,7 @@ import { GISCUS, giscusEnabled } from '../config/site';
 ---
 
 {
-  giscusEnabled && (
+  giscusEnabled ? (
     <section class="comments" aria-label="文章评论">
       <div class="comments__rule">
         <span class="comments__label">附录 · 议论</span>
@@ -50,6 +55,25 @@ import { GISCUS, giscusEnabled } from '../config/site';
           mount.appendChild(s);
         })();
       </script>
+    </section>
+  ) : (
+    <section class="comments comments--unlit" aria-label="评论区尚未启用">
+      <div class="comments__rule">
+        <span class="comments__label">附录 · 议论</span>
+      </div>
+      <div class="comments__pending">
+        <p class="comments__pending-mark" aria-hidden="true">◇</p>
+        <p class="comments__pending-title">议论未点亮</p>
+        <p class="comments__pending-desc">
+          评论区基于 GitHub Discussions（giscus），当前站点尚未配置。点亮步骤：
+        </p>
+        <ol class="comments__pending-steps">
+          <li>GitHub 仓库 Settings → General → 开启 Discussions</li>
+          <li>到 giscus.app 生成 repoId / categoryId 四要素</li>
+          <li>填入 <code>src/config/site.ts</code> 的 GISCUS 配置</li>
+          <li>重新 build，评论区在此处亮起</li>
+        </ol>
+      </div>
     </section>
   )
 }

@@ -2,7 +2,7 @@
 // og.mjs — 全站默认 OG 分享图生成器
 // ============================================================
 // 产出：public/og-default.png（1200×630，微信/Twitter/Telegram 转链卡片用）。
-// 实现方式：手写 SVG（墨渊视觉：渊底黑 + 骨白巨字 + 朱砂唯一彩色）
+// 实现方式：手写 SVG（站点视觉：渊底黑 + 骨白巨字 + 朱砂唯一彩色）
 // → sharp 栅格化为 PNG。
 //
 // 用法：node scripts/og.mjs
@@ -51,7 +51,7 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
 
   <!-- 底部：系列名 + slogan -->
   <text x="84" y="520" font-family="'JetBrains Mono','Cascadia Mono',Consolas,monospace"
-        font-size="26" letter-spacing="12" fill="${BONE}">INK VOID / 墨渊</text>
+        font-size="26" letter-spacing="12" fill="${BONE}">UNVESSEL / 不器</text>
   <text x="84" y="566" font-family="'Microsoft YaHei','PingFang SC',sans-serif"
         font-size="22" fill="${SMOKE}">愿被看见，不被定义</text>
 </svg>`;
@@ -61,4 +61,4 @@ await sharp(Buffer.from(svg), { density: 72 })
   .png()
   .toFile(path.join(ROOT, 'public', 'og-default.png'));
 
-console.log('✓ 已生成 public/og-default.png（1200×630，墨渊视觉）');
+console.log('✓ 已生成 public/og-default.png（1200×630，站点视觉）');
