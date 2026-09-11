@@ -10,8 +10,9 @@
   },
   "scripts": {
     "dev": "astro dev --host",
-    "build": "astro build && pagefind --site dist",
+    "build": "node scripts/og-post.mjs && astro build && pagefind --site dist",
     "preview": "astro preview --host",
+    "og": "node scripts/og-post.mjs",
     "new": "node scripts/new-post.mjs",
     "mcp": "node scripts/mcp-server.mjs"
   },
