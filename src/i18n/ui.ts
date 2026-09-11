@@ -280,6 +280,73 @@ const zh = {
     contactP4: '代码与日常：',
   },
 
+  /**
+   * 版权页（/colophon/）——技术构成清单。
+   * 出版书籍末页的「版权页」记录字体、纸张与印次；本页是它的数字同义：
+   * 书房由什么建成，一一列明。分组 key 与模板循环解耦（Object.entries），
+   * 增删分组只改字典，模板自动跟上。
+   * groups 各条目为 [名称, 说明] 二元组——名称是专有名词（字体/框架名）不译，
+   * 说明随语言走。
+   */
+  colophon: {
+    kicker: 'COLOPHON — 版权页',
+    giant: ['版', '页'],
+    giantAria: '版权页',
+    title: '版权页 — unvessel 不器',
+    desc: '本站的字体、工具与设计规格——一间书房的家底，一一列明。',
+    intro:
+      '出版书籍末页会附一页「版权页」，记录字体、纸张与印次。这是它的数字同义：这间书房由什么建成，每一件都摆在明面上。',
+    groups: {
+      type: {
+        label: '字体 / TYPE',
+        items: [
+          ['Noto Serif SC', '沉底巨字与引文，宋体重墨'],
+          ['Noto Sans SC', '正文与界面，黑体清爽'],
+          ['JetBrains Mono', '元信息、代码与编号'],
+          ['Anton', '英文巨字，与宋体同框'],
+          ['@fontsource 自托管', '按 unicode-range 切片加载，不依赖第三方 CDN'],
+        ],
+      },
+      build: {
+        label: '构建 / BUILD',
+        items: [
+          ['Astro 5', '纯静态输出，零客户端框架'],
+          ['TypeScript', '全站严格类型，字典结构编译期兜底'],
+          ['Sharp', '分享图（OG）构建期由 SVG 逐文章渲染'],
+          ['Pagefind', '构建期索引的纯静态站内检索'],
+        ],
+      },
+      features: {
+        label: '功能 / FEATURES',
+        items: [
+          ['RSS', '中英双语 feed，构建期生成'],
+          ['giscus', '评论基于 GitHub Discussions，未配置即不渲染'],
+          ['sitemap + JSON-LD', 'hreflang 中英互指，文章页 BlogPosting 结构化数据'],
+          ['阅读量与点赞', 'Upstash 计数，未配置即静默隐藏'],
+        ],
+      },
+      design: {
+        label: '设计 / DESIGN',
+        items: [
+          ['墨渊 × 朱砂', '#070707 深渊底色，#ff3b2f 唯一强调'],
+          ['直角与发丝线', '无圆角、无阴影、无渐变按钮'],
+          ['明暗双主题', '暗「渊」/ 亮「宣纸」，同一套令牌翻转'],
+          ['流体墨', 'WebGL 画布，视图过渡间跨页持久'],
+        ],
+      },
+      deploy: {
+        label: '部署 / DEPLOY',
+        items: [
+          ['Vercel', '零配置托管，构建即上线'],
+          ['GitHub', '源码与版本，提交即历史'],
+        ],
+      },
+    },
+    outroPrefix: '以上皆器，',
+    outroEm: '用器者不器',
+    outroSuffix: '。',
+  },
+
   /** 404 页 */
   nf: {
     title: '404 — unvessel 不器',
@@ -534,6 +601,65 @@ const en = {
     contactP2: '. No small talk, but every serious letter gets a serious reply. Subscribe via ',
     contactP3: '.',
     contactP4: 'Code and daily notes: ',
+  },
+
+  colophon: {
+    kicker: 'COLOPHON',
+    giant: ['COLOPHON'],
+    giantAria: 'Colophon',
+    title: 'Colophon — unvessel',
+    desc: 'The typefaces, tools and design specs of this site — listed in plain sight.',
+    intro:
+      'Printed books end with a colophon: typefaces, paper, print runs. This is its digital counterpart — what this study is built with, every piece in plain sight.',
+    groups: {
+      type: {
+        label: 'TYPE',
+        items: [
+          ['Noto Serif SC', 'Giant characters & quotations, heavy Song-style ink'],
+          ['Noto Sans SC', 'Body text & interface'],
+          ['JetBrains Mono', 'Metadata, code & numbering'],
+          ['Anton', 'English display type, set beside the Song serif'],
+          ['@fontsource self-hosted', 'Loaded in unicode-range slices — no third-party CDN'],
+        ],
+      },
+      build: {
+        label: 'BUILD',
+        items: [
+          ['Astro 5', 'Fully static output, zero client framework'],
+          ['TypeScript', 'Strict typing site-wide; dictionary shape checked at compile time'],
+          ['Sharp', 'OG share images rendered from SVG per post at build time'],
+          ['Pagefind', 'Static site search indexed at build time'],
+        ],
+      },
+      features: {
+        label: 'FEATURES',
+        items: [
+          ['RSS', 'Bilingual feeds generated at build time'],
+          ['giscus', 'Comments via GitHub Discussions; not rendered until configured'],
+          ['sitemap + JSON-LD', 'hreflang zh/en alternates; BlogPosting structured data on posts'],
+          ['Views & likes', 'Upstash counters, silently hidden when unconfigured'],
+        ],
+      },
+      design: {
+        label: 'DESIGN',
+        items: [
+          ['Void × Vermilion', '#070707 abyss ground, #ff3b2f the only accent'],
+          ['Right angles & hairlines', 'No rounding, no shadows, no gradient buttons'],
+          ['Two themes', 'Dark "Yuan" / light "Xuan paper" — one set of tokens, flipped'],
+          ['Fluid ink', 'WebGL canvas, persistent across page transitions'],
+        ],
+      },
+      deploy: {
+        label: 'DEPLOY',
+        items: [
+          ['Vercel', 'Zero-config hosting; build and it is live'],
+          ['GitHub', 'Source and versions; every commit is history'],
+        ],
+      },
+    },
+    outroPrefix: 'All of these are vessels. ',
+    outroEm: 'The one who wields them is not',
+    outroSuffix: '.',
   },
 
   nf: {

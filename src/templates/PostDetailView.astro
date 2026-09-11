@@ -16,9 +16,10 @@ import { render } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Comments from '../components/Comments.astro';
 import Metrics from '../components/Metrics.astro';
+import { PROFILE } from '../data/profile';
 import { getDisplayPosts, type PostEntry } from '../lib/posts';
 import { formatDate, postUid } from '../lib/utils';
-import { ui, localePath, type Lang } from '../i18n/ui';
+import { ui, htmlLang, localePath, type Lang } from '../i18n/ui';
 
 interface Props {
   /** 站点语言（壳里写死） */
@@ -36,6 +37,45 @@ const { title, description, pubDate, tags, cover } = post.data;
 // headings：Astro markdown 渲染器自带的标题表（depth/slug/text），
 // slug 与正文里自动生成的 heading id 一致，可直接做锚点跳转
 const { Content, headings } = await render(post);
+
+/**
+ * og:image 回退链：frontmatter 头图 > 动态 OG 分享图（scripts/og-post.mjs
+ * 构建期逐文章生成的 public/og/<uid>.png，1200×630 与站点排版同源）。
+ * 两级都空的情况不存在——uid 由 frontmatter 或文件名哈希兜底（见 utils.ts），
+ * 动态图恒定可用，meta 缺省的全站默认图只留给非文章页。
+ */
+const ogImagePath = cover || `/og/${postUid(post)}.png`;
+
+/**
+ * JSON-LD 结构化数据（schema.org BlogPosting）：
+ * 给搜索引擎（Google 富结果 / 必应）一份机器可读的文章元信息，
+ * 与 Base.astro 里的 OG / canonical meta 同源同口径（同一 site 域名推导）。
+ * 只输出脚本所在页面 = 文章详情页，中英两壳共用本模板，一处维护两站生效。
+ */
+const jsonLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  /** 标题（headline 是 Google 富结果必填项之一） */
+  headline: title,
+  /** 一句话摘要：与 meta description / 页面导语同源 */
+  description,
+  /** 分享图：与 og:image 同一 URL（site 域名推导的绝对地址） */
+  image: new URL(ogImagePath, Astro.site).href,
+  /** 发布时间：与 article:published_time 同源（ISO 8601） */
+  datePublished: pubDate.toISOString(),
+  /** 内容语言：跟展示稿走（zh-CN / en），而非站点语言 */
+  inLanguage: htmlLang[post.data.lang],
+  /** 标签作为关键词（空 tags 时省略该字段，避免输出空串） */
+  ...(tags.length > 0 && { keywords: tags.join(', ') }),
+  /** 文章的规范页面（canonical），与 <link rel="canonical"> 一致 */
+  mainEntityOfPage: new URL(Astro.url.pathname, Astro.site).href,
+  /** 作者：中文站落「不器」、英文站落 unvessel，url 指向站点根 */
+  author: {
+    '@type': 'Person',
+    name: lang === 'zh' ? PROFILE.zhName : PROFILE.name,
+    url: String(Astro.site),
+  },
+});
 
 // 目录数据：只取 h2/h3 —— h1 是文章标题本身，h4 以下太碎不进目录
 const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
@@ -78,8 +118,16 @@ const older = pos >= 0 && pos < all.length - 1 ? all[pos + 1] : null;
   description={description}
   ogType="article"
   publishedTime={pubDate}
-  ogImage={cover}
+  ogImage={ogImagePath}
 >
+  <!--
+    JSON-LD 结构化数据：与上方 frontmatter 构建的 jsonLd 对象同源，
+    set:html 原样注入（JSON.stringify 的产物是安全的——字符串字段来自
+    frontmatter，含引号等字符会被 JSON 转义兜住）。
+    放 body 顶部对 Google 解析无影响（JSON-LD 位置不敏感）。
+  -->
+  <script type="application/ld+json" set:html={jsonLd} />
+
   <!--
     阅读进度条：固定在顶栏下沿的 2px 朱砂细线，
     transform: scaleX 由 main.js 的 initPostTools 随滚动驱动（无 JS 时宽度为 0，不碍事）。

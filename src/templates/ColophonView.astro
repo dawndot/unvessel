@@ -1,0 +1,83 @@
+---
+// ============================================================
+// ColophonView.astro — 版权页共享模板（中英两站渲染同一结构）
+// ============================================================
+// 定位：出版书籍末页「版权页」的数字同义——记录本站的字体、
+// 工具与设计规格。与关于页的分工：about 说「我是谁、怎么建的」
+// （叙事），colophon 说「用什么建成」（清单），互不重复。
+// 结构：页头巨字 → 引言 → 分组清单（字体/构建/功能/设计/部署）
+// → 落款行（「以上皆器，用器者不器」呼应首页宣言句式）。
+// 分组数据全部住在字典列（ui.ts 的 colophon.groups），
+// 模板用 Object.entries 循环——增删分组只改字典，本模板自动跟上。
+// 不带 data-pagefind-body：版权页不进检索索引（Pagefind 白名单规则）。
+// ============================================================
+
+import Base from '../layouts/Base.astro';
+import { PROFILE } from '../data/profile';
+import { ui, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言（壳里写死） */
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui[lang];
+
+// 分组清单：Object.entries 保持字典 key 的声明顺序（字体 → 构建 → 功能 → 设计 → 部署）
+const groups = Object.entries(t.colophon.groups);
+---
+
+<Base lang={lang} title={t.colophon.title} description={t.colophon.desc}>
+  <!-- ===== 页头（与 about / works 等页同一 page-head 语言） ===== -->
+  <header class="page-head">
+    <p class="page-head__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      {t.colophon.kicker}
+    </p>
+    <h1 class="page-head__title" aria-label={t.colophon.giantAria}>
+      {t.colophon.giant.map((ch, i) => (
+        <span
+          class:list={[{ hollow: i === Math.min(1, t.colophon.giant.length - 1) }]}
+          data-rv
+          style={`--d:${0.08 + 0.1 * i}s`}
+        >
+          {ch}
+        </span>
+      ))}
+    </h1>
+    <p class="page-head__meta" data-rv style="--d:.28s">
+      <span>TYPE × BUILD × DESIGN</span>
+      <span>UNVESSEL / {PROFILE.zhName}</span>
+    </p>
+  </header>
+
+  <!-- ===== 引言：版权页是什么、为什么在这里 ===== -->
+  <section class="prose-wrap" style="padding-top: 0;">
+    <div class="prose prose--wide">
+      <p>{t.colophon.intro}</p>
+    </div>
+  </section>
+
+  <!-- ===== 分组清单：发丝线分组的两列字行（左名称右说明） ===== -->
+  <section class="colophon" aria-label={t.colophon.giantAria}>
+    {groups.map(([key, group], gi) => (
+      <div class="colophon__group" data-rv style={`--d:${0.06 * gi}s`}>
+        <p class="colophon__label">{group.label}</p>
+        <dl class="colophon__list">
+          {group.items.map(([name, note]) => (
+            <div class="colophon__row">
+              <dt>{name}</dt>
+              <dd>{note}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    ))}
+
+    <!-- 落款行：呼应 about 页落款与首页宣言句式（前缀 + 朱砂衬线强调词 + 尾缀） -->
+    <p class="colophon__outro" data-rv>
+      {t.colophon.outroPrefix}<em>{t.colophon.outroEm}</em>{t.colophon.outroSuffix}
+    </p>
+  </section>
+</Base>

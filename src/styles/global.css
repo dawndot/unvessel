@@ -3063,3 +3063,69 @@ a.work-card__link:hover::before {
     animation: none;
   }
 }
+
+/* ============================================================
+   25 版权页（/colophon）：分组清单字行
+   ============================================================ */
+/* 出版书籍版权页的数字同义：mono 细字两列字行（左名称右说明），
+   发丝线分行——与统计面板 / 热力图同一套「线格」语言。
+   全部取双主题令牌（--void/--bone/--smoke/--line），明暗自动翻转。 */
+
+.colophon {
+  padding: clamp(40px, 7vh, 72px) var(--gutter) clamp(64px, 10vh, 110px);
+  border-top: 1px solid var(--line);
+  /* 清单限宽居中：全宽会散，版权页要「一页纸」的密度感 */
+  max-width: 960px;
+  margin: 0 auto;
+}
+.colophon__group + .colophon__group {
+  margin-top: clamp(32px, 5vh, 52px); /* 组间距：组名即分隔，无需更多装饰 */
+}
+.colophon__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--bone);
+  margin: 0 0 clamp(12px, 2vh, 18px);
+}
+.colophon__list {
+  margin: 0;
+}
+.colophon__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr; /* 名称定列宽，说明吃剩余宽 */
+  gap: 4px 24px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+.colophon__row dt {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--bone);
+}
+.colophon__row dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--smoke);
+}
+/* 窄屏：名称与说明堆叠（名称行定住列宽的 220px 会挤压说明） */
+@media (max-width: 560px) {
+  .colophon__row {
+    grid-template-columns: 1fr;
+  }
+}
+.colophon__outro {
+  margin: clamp(40px, 6vh, 64px) 0 0;
+  font-size: 0.95em;
+  color: var(--smoke);
+}
+.colophon__outro em {
+  /* 落款强调词：朱砂衬线——与 about 页落款 / 首页宣言同一套强调语言 */
+  font-family: var(--font-serif);
+  font-style: normal;
+  font-weight: 900;
+  color: var(--accent);
+}

@@ -338,6 +338,8 @@ function isCurrent(href: string): boolean {
             <!-- RSS 按语言指向对应 feed（/feed.xml 或 /en/feed.xml） -->
             <a href={localePath(lang, '/feed.xml')}>RSS</a>
             {PROFILE.links.github && <a href={PROFILE.links.github} target="_blank" rel="noopener noreferrer">GITHUB</a>}
+            <!-- 版权页：技术构成清单（字体/构建/设计），出版书籍末页的数字同义 -->
+            <a href={localePath(lang, '/colophon/')}>COLOPHON</a>
           </p>
         </div>
         <p class="footer__fine" set:html={t.base.fine1 + '<br />' + t.base.fine2} />
