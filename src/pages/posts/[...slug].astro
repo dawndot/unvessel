@@ -28,13 +28,28 @@ const { post } = Astro.props;
 // cover：frontmatter 头图（可选）。三处联动：
 // 文章页头图展示 / og:image 分享卡 / 首页精选大卡（首页自己读）
 const { title, description, pubDate, tags, cover } = post.data;
-const { Content } = await render(post);
+// headings：Astro markdown 渲染器自带的标题表（depth/slug/text），
+// slug 与正文里自动生成的 heading id 一致，可直接做锚点跳转
+const { Content, headings } = await render(post);
+
+// 目录数据：只取 h2/h3 —— h1 是文章标题本身，h4 以下太碎不进目录
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+
+// 阅读时长：按中文有效字符估算（去空白后的字数 ÷ 每分钟 400 字，至少 1 分钟）
+const chars = (post.body || '').replace(/\s/g, '').length;
+const minutes = Math.max(1, Math.round(chars / 400));
 
 // 文章编号 = 全站总序（倒序位次），展示用
 const all = (await getCollection('posts', ({ data }) => !data.draft)).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
+
+// 上一篇 / 下一篇：all 为倒序（新 → 旧），所以左邻是更新的文章、右邻是更早的。
+// 上一篇 = 更早一篇（书页向前翻），下一篇 = 更新一篇。
+const pos = all.findIndex((p) => p.id === post.id);
+const newer = pos > 0 ? all[pos - 1] : null;
+const older = pos < all.length - 1 ? all[pos + 1] : null;
 ---
 
 <Base
@@ -45,6 +60,12 @@ const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
   ogImage={cover}
 >
   <!--
+    阅读进度条：固定在顶栏下沿的 2px 朱砂细线，
+    transform: scaleX 由 main.js 的 initPostTools 随滚动驱动（无 JS 时宽度为 0，不碍事）。
+  -->
+  <div class="read-progress" aria-hidden="true"><i></i></div>
+
+  <!--
     文章头：data-pagefind-body 把此区块标记进搜索索引
     （Pagefind 规则：站点内任何页面带此标记后，未标记页面一律不入索引
     → 只有文章页进索引，首页/列表/关于页天然排除）。
@@ -54,6 +75,7 @@ const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
     <div class="post-head__meta">
       <span class="accent">FILE {idx}</span>
       <time datetime={pubDate.toISOString()} data-pagefind-meta="date">{formatDate(pubDate)}</time>
+      <span>约 {minutes} 分钟</span>
       {tags.length > 0 && <span>{tags.join(' / ')}</span>}
     </div>
     <h1 class="post-head__title" data-rv style="--d:.06s">{title}</h1>
@@ -71,10 +93,39 @@ const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
   )}
 
   <!-- ===== 正文 ===== -->
+  <!--
+    prose-wrap 是三列网格：1fr | 正文(38em) | 1fr。
+    桌面端目录（.post-toc）落位右列吸顶；移动端换成一篇文章开头的折叠面板（.post-toc-m）。
+    两块目录都带 data-pagefind-ignore：目录词组不进搜索索引，避免污染正文摘要。
+  -->
   <article class="prose-wrap" data-pagefind-body>
+    {toc.length > 0 && (
+      <details class="post-toc-m" data-pagefind-ignore>
+        <summary>目录 — {String(toc.length).padStart(2, '0')} 节</summary>
+        <ul>
+          {toc.map((h) => (
+            <li class={`post-toc__item post-toc__item--d${h.depth}`}>
+              <a href={`#${h.slug}`}>{h.text}</a>
+            </li>
+          ))}
+        </ul>
+      </details>
+    )}
     <div class="prose">
       <Content />
     </div>
+    {toc.length > 0 && (
+      <aside class="post-toc" aria-label="目录" data-pagefind-ignore>
+        <p class="post-toc__label">目录 / INDEX</p>
+        <ul>
+          {toc.map((h) => (
+            <li class={`post-toc__item post-toc__item--d${h.depth}`}>
+              <a href={`#${h.slug}`}>{h.text}</a>
+            </li>
+          ))}
+        </ul>
+      </aside>
+    )}
   </article>
 
   <!-- ===== 阅读量 / 点赞（API 缺席时自动隐藏，见 api/metrics.ts） ===== -->
@@ -83,8 +134,29 @@ const idx = String(all.findIndex((p) => p.id === post.id) + 1).padStart(3, '0');
   <!-- ===== 评论区（Giscus；site.ts 未配置时构建期整体省略） ===== -->
   <Comments />
 
-  <!-- ===== 文末返回 ===== -->
+  <!-- ===== 文末导航 ===== -->
+  <!--
+    两层：上层 = 上一篇/下一篇导航卡（左「更早」右「更新」；首末篇缺一侧时
+    只渲染存在的一侧，CSS 把落单的「下一篇」卡推到右列，保持左右语义位）。
+    下层 = 返回列表 + 品牌署名。
+  -->
   <nav class="post-foot" aria-label="文章导航">
+    {(older || newer) && (
+      <div class="post-foot__nav">
+        {older && (
+          <a class="post-foot__card" href={`/posts/${postUid(older)}/`}>
+            <span class="post-foot__dir">← 上一篇 · 更早</span>
+            <span class="post-foot__title">{older.data.title}</span>
+          </a>
+        )}
+        {newer && (
+          <a class="post-foot__card post-foot__card--next" href={`/posts/${postUid(newer)}/`}>
+            <span class="post-foot__dir">下一篇 · 更新 →</span>
+            <span class="post-foot__title">{newer.data.title}</span>
+          </a>
+        )}
+      </div>
+    )}
     <div class="post-foot__inner">
       <a class="post-foot__back" href="/posts/">← 返回全部文章</a>
       <span class="post-foot__back">UNVESSEL</span>

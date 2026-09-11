@@ -29,14 +29,18 @@ const flag = draft ? ' [草稿]' : '';
     <span class="row__idx">{String(idx).padStart(3, '0')}</span>
     <span class="row__main">
       <span class="row__title">
-        {/* 置顶标记：pinned 时在标题前挂朱砂细框小标（schema 里 pinned: true 即生效） */}
-        {pinned && <span class="row__pin">置顶</span>}
+        {/* 置顶不再占用标题行（2026-09-11：细框徽标压在巨字前太抢戏，
+            改为日期区里的弱化文字标——置顶本身已由排位表达，这里只是注释） */}
         {title}{flag}
       </span>
       <span class="row__sub">{description}</span>
     </span>
     <span class="row__cat">{cat}</span>
-    <time class="row__date" datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
+    <span class="row__datewrap">
+      {/* 置顶标记：无框朱砂细字 + 「/」分隔，与日期同层（移动端随日期列一起隐藏） */}
+      {pinned && <span class="row__pin">置顶</span>}
+      <time class="row__date" datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
+    </span>
     <span class="row__arrow" aria-hidden="true">→</span>
   </a>
 </li>

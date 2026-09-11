@@ -323,6 +323,107 @@ function initSearch() {
   });
 }
 
+/* ---------- 6. 文章页工具（仅文章详情页生效，其他页面自动空跑） ----------
+   四件事，全部靠「页面里有没有对应元素」守卫：
+   ① 阅读进度条：顶栏下沿 2px 朱砂线，scaleX 随滚动推进；
+   ② 目录滚动高亮：正文 h2/h3 进入视口上 1/3 时点亮目录对应项；
+   ③ 代码块复制按钮：JS 把每个 pre 包进 .codeblock 并挂按钮（渐进增强）；
+   ④ 标题锚点：给每个 h2/h3 追加「#」深链，悬停浮现，可复制分享。
+
+   幂等策略：scroll/resize 监听挂 window，用 AbortController 做代际——
+   每次进文章页先 abort 上一代的监听（旧页面元素已随视图过渡销毁），
+   再为新 DOM 重挂；IO 与其余绑定只作用于本次新元素，无需去重。 */
+let postToolsAbort = new AbortController();
+
+function initPostTools() {
+  // 代际推进：上一页文章的 window 监听全部作废
+  postToolsAbort.abort();
+  postToolsAbort = new AbortController();
+  const signal = postToolsAbort.signal;
+
+  const bar = document.querySelector('.read-progress i');
+  const prose = document.querySelector('.prose');
+  if (!bar && !prose) return; // 非文章页：整个模块空跑
+
+  const heads = prose ? Array.from(prose.querySelectorAll('h2[id], h3[id]')) : [];
+  const tocLinks = Array.from(document.querySelectorAll('.post-toc a, .post-toc-m a'));
+
+  /* ① 进度条 + ② 目录高亮：同一个 rAF 节流的滚动处理器 */
+  if (bar || (heads.length && tocLinks.length)) {
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      // 进度：已滚距离 / 可滚总距离 → scaleX 0..1（transform 不触发重排）
+      if (bar) {
+        const max = document.documentElement.scrollHeight - innerHeight;
+        const p = max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0;
+        bar.style.transform = 'scaleX(' + p.toFixed(4) + ')';
+      }
+      // 高亮：取「顶线在视口 1/3 上方」的最后一个标题为当前节；
+      // 滚到页尾时强制点亮最后一项（尾节往往撑不满 1/3 视口）
+      if (heads.length && tocLinks.length) {
+        let current = -1;
+        const line = innerHeight * 0.33;
+        for (let i = 0; i < heads.length; i++) {
+          if (heads[i].getBoundingClientRect().top <= line) current = i;
+        }
+        if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) {
+          current = heads.length - 1;
+        }
+        tocLinks.forEach((a) => {
+          a.classList.toggle(
+            'is-active',
+            a.getAttribute('href') === '#' + heads[current]?.id
+          );
+        });
+      }
+    };
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true, signal });
+    window.addEventListener('resize', onScroll, { passive: true, signal });
+    update(); // 首帧立即校准（含刷新后恢复滚动位的场景）
+  }
+
+  /* ③ 代码块复制按钮：把 pre 包进 .codeblock 定位容器，按钮挂在右上角 */
+  prose && prose.querySelectorAll('pre').forEach((pre) => {
+    if (pre.closest('.codeblock')) return; // 重复导航防御（DOM 每页全新，理论上不会中）
+    const wrap = document.createElement('div');
+    wrap.className = 'codeblock';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'code-copy';
+    btn.textContent = '复制';
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.innerText);
+        btn.textContent = '已复制';
+      } catch {
+        btn.textContent = '复制失败'; // 剪贴板权限拒绝 / 非安全上下文
+      }
+      setTimeout(() => { btn.textContent = '复制'; }, 1600);
+    });
+    pre.replaceWith(wrap);
+    wrap.appendChild(pre);
+    wrap.appendChild(btn);
+  });
+
+  /* ④ 标题锚点：h2/h3 尾部追加「#」深链（slug 已由 markdown 渲染器生成）；
+     悬停浮现（样式在 CSS），点击后 URL 带锚点，可直接分享定位 */
+  heads.forEach((h) => {
+    if (h.querySelector('.h-anchor')) return;
+    const a = document.createElement('a');
+    a.className = 'h-anchor';
+    a.href = '#' + h.id;
+    a.textContent = '#';
+    a.setAttribute('aria-label', '链接到「' + h.textContent + '」一节');
+    h.appendChild(a);
+  });
+}
+
 /* ---------- 入口：每次页面加载（含视图过渡后）调用 ---------- */
 export function initPage() {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -331,4 +432,5 @@ export function initPage() {
   initCursor(reduced);
   initParallax(reduced);
   initSearch();
+  initPostTools();
 }
