@@ -195,36 +195,42 @@ function isCurrent(href: string): boolean {
       <slot />
     </main>
 
-    <!-- 页脚：联络 / 站点地图 / 印章 + 沉底巨字 -->
+    <!-- 页脚（2026-09-11 落款式重构）：告别三栏竖排站点地图，改为两层构图——
+         ① 信息层：联络与版权两行 mono 细字；
+         ② 落款层：横排编号字行（衬线大字 + mono 小号，沿用顶栏 NAV 编号语言）
+            + 「字+印」同框收尾——书法作品写完落款钤印，印随字沉入渊里 -->
     <footer class="footer">
-      <div class="footer__grid">
-        <div class="footer__col">
+      <!-- 信息层：左联络右版权，两端对齐 -->
+      <div class="footer__meta">
+        <div class="footer__contact">
           <p class="footer__label">联络 / CONTACT</p>
-          <ul>
-            <li><a href={`mailto:${PROFILE.email}`}>{PROFILE.email}</a></li>
-            <li><a href={PROFILE.links.rss}>RSS</a></li>
-            {PROFILE.links.github && <li><a href={PROFILE.links.github} target="_blank" rel="noopener noreferrer">GitHub</a></li>}
-          </ul>
-        </div>
-        <div class="footer__col">
-          <p class="footer__label">站点地图 / SITEMAP</p>
-          <!-- 复用顶部 NAV 数组：加板块只改一处，页脚自动跟上 -->
-          <ul>
-            {NAV.map((item) => (
-              <li><a href={item.href}>{item.label}</a></li>
-            ))}
-          </ul>
-        </div>
-        <div class="footer__col footer__col--end">
-          <span class="seal" aria-hidden="true">不器</span>
-          <p class="footer__fine">
-            © 2026 UNVESSEL — BUILT WITH ASTRO<br />
-            愿被看见，不被定义
+          <p class="footer__links">
+            <a href={`mailto:${PROFILE.email}`}>{PROFILE.email}</a>
+            <a href={PROFILE.links.rss}>RSS</a>
+            {PROFILE.links.github && <a href={PROFILE.links.github} target="_blank" rel="noopener noreferrer">GITHUB</a>}
           </p>
         </div>
+        <p class="footer__fine">
+          © 2026 UNVESSEL — BUILT WITH ASTRO<br />
+          愿被看见，不被定义
+        </p>
       </div>
-      <!-- 沉底描边巨字：下半裁掉，像字沉入渊里 -->
-      <p class="footer__big" aria-hidden="true">不器</p>
+      <!-- 站点地图：横排编号字行——复用顶部 NAV 数组，加板块只改一处，页脚自动跟上；
+           结构与顶栏 <i>编号</i><span>标签</span> 同构，编号语言全站一致 -->
+      <p class="footer__label">站点地图 / SITEMAP</p>
+      <nav class="footer__map" aria-label="站点地图">
+        {NAV.map((item) => (
+          <a href={item.href}>
+            <i>{item.no}</i>
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </nav>
+      <!-- 落款：沉底巨字 + 朱砂印同框。下半裁掉像字沉入渊里，印钤在字侧不被裁——完整收尾 -->
+      <div class="footer__sign" aria-hidden="true">
+        <p class="footer__big">不器</p>
+        <span class="seal">不器</span>
+      </div>
     </footer>
 
     <!-- 噪点覆层与自定义光标：固定层，persist 保持连续 -->

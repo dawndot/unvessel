@@ -6,7 +6,8 @@
 //   爱好区 src/data/garden.ts（GARDEN 数组，加条目 = 加一条 + build；
 //          门类 kind 是自由字符串，页面按值自动分组——加门类不加码）
 //   灵感区 src/content/ideas/*.md（ideas 集合，CLI `unv idea "一句话"` 秒记）
-// 结构：页头 → 爱好分组（行式列表）→ 灵感时间线（倒序）。
+// 结构：书房舞台（3D 第一屏，garden-room.ts 挂载；无 JS/WebGL 时为 CSS 宣纸底）
+//       → 页头 → 爱好分组（行式列表）→ 灵感时间线（倒序）。
 // 灵感正文是纯文本（frontmatter text 字段），不走 markdown 渲染管线，
 // 换行按 pre-line 展示——碎片不需要排版能力，需要落盘即上线。
 // ============================================================
@@ -44,8 +45,27 @@ function hostOf(url: string): string {
 ---
 
 <Base title="自留地 — unvessel 不器" description="不器的自留地：读书、音乐，和随手种下的念头。">
-  <!-- ===== 页头 ===== -->
-  <header class="page-head">
+  <!-- ===== 书房舞台：3D 房间壳体（P1，garden-room.ts 挂载） =====
+       分层不替换：canvas 叠在 CSS 宣纸底之上——WebGL 失败或无 JS 时
+       canvas 不出现，宣纸底与题字构成静态画面，下方 2D 内容永远可达。
+       topbar 是 fixed 半透明渊底毛玻璃，舞台从文档 y=0 起铺，让栏底压在纸面上。 -->
+  <section id="garden-stage" aria-label="书房——自留地的三维门面">
+    <!-- WebGL 画布宿主：挂载成功则填满舞台，失败则保持空（露出宣纸底） -->
+    <div id="garden-stage-canvas" aria-hidden="true"></div>
+    <!-- 墙上题字：竖排 slogan + 朱砂小印（3D 与静态降级共用同层，pointer-events:none） -->
+    <div class="stage-words">
+      <p class="stage-slogan">愿被看见<br />不被定义</p>
+      <span class="stage-seal" aria-hidden="true">不器</span>
+    </div>
+    <!-- 向下引导：锚到 2D 内容区（html 已有 smooth 滚动与 72px 锚点余量） -->
+    <a class="stage-cue" href="#garden-content">
+      <span>向下 · 进自留地</span>
+      <i aria-hidden="true">↓</i>
+    </a>
+  </section>
+
+  <!-- ===== 页头（锚点 #garden-content：舞台向下引导的落点） ===== -->
+  <header class="page-head" id="garden-content">
     <p class="page-head__kicker" data-rv>
       <span class="kdot" aria-hidden="true"></span>
       GARDEN — 自留地
@@ -156,4 +176,21 @@ function hostOf(url: string): string {
       {ideas.length === 0 && <p class="garden-sparks__empty">还没有念头落进这里。</p>}
     </div>
   </section>
+
+  <!-- ===== 书房舞台装配：视图过渡生命周期 =====
+       ClientRouter 下 astro:page-load 首载与每次换页后都会触发（幂等挂载）；
+       astro:before-swap 换页前拆除 RAF / ResizeObserver，防止泄漏到下一页。
+       残留监听在其他页触发时（stage 不存在）确保场景已拆除。 -->
+  <script>
+    import { mountGardenRoom, unmountGardenRoom } from '../scripts/garden-room';
+
+    document.addEventListener('astro:page-load', () => {
+      if (!document.getElementById('garden-stage')) {
+        unmountGardenRoom();
+        return;
+      }
+      mountGardenRoom();
+    });
+    document.addEventListener('astro:before-swap', () => unmountGardenRoom());
+  </script>
 </Base>

@@ -586,12 +586,17 @@ html.cursor-hover .cursor__ring {
   transition: color 0.3s;
 }
 .row__cat,
-.row__date {
+.row__datewrap {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.16em;
   color: var(--smoke);
   transition: color 0.3s;
+}
+.row__datewrap {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
 }
 .row__arrow {
   justify-self: end;
@@ -612,20 +617,62 @@ html.cursor-hover .cursor__ring {
   transform: translateX(8px);
 }
 
-/* 置顶标记：标题前的朱砂细框小标（pinned: true 时由 PostRow 渲染） */
+/* 置顶标记（2026-09-11 重做）：不再用细框徽标压在标题前，
+   改为日期区里的弱注释——无框朱砂细字 + 「/」分隔。
+   置顶与否排位上已经说明，这里只是给「它为什么在最上」补个注脚 */
 .row__pin {
-  display: inline-block;
-  margin-right: 14px;
-  padding: 4px 9px;
-  border: 1px solid var(--accent);
   color: var(--accent);
+}
+.row__pin::after {
+  content: '/';
+  margin: 0 10px;
+  color: var(--smoke);
+}
+
+/* ---------- 08b 页码组件 ----------
+   仅文章超出一页时由 [...page].astro 渲染。
+   与 .row 同一 mono 细字语言：数字页码居中一排，当前页朱砂；
+   前后翻页箭头分居两端，无上/下一页时置灰占位（两端不跳位） */
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-top: clamp(28px, 5vh, 48px);
+}
+.pager__pages {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.pager__no {
+  display: inline-block;
+  padding: 8px 12px;
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.28em;
-  text-indent: 0.28em; /* 补偿 letter-spacing 尾距，让两字视觉居中 */
-  vertical-align: middle;
-  transform: translateY(-3px);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--smoke);
+  transition: color 0.25s;
+}
+.pager__no:hover,
+.pager__step:hover {
+  color: var(--bone);
+}
+.pager__no.is-current {
+  color: var(--accent);
+}
+.pager__step {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--smoke);
+  padding: 8px 12px;
+  transition: color 0.25s;
+}
+.pager__step.is-off {
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 /* ---------- 09 宣言 ---------- */
@@ -669,53 +716,39 @@ html.cursor-hover .cursor__ring {
   color: var(--accent);
 }
 
-/* ---------- 10 页脚 ---------- */
+/* ---------- 10 页脚（2026-09-11 落款式重构） ----------
+   两层构图：信息层（联络/版权 mono 细字）→ 站点地图横排编号字行 → 「字+印」落款。
+   巨字由描边改为实心低透明水印：1px 描边叠在烟雾湍流上被搅得断续显脏，
+   实心水印是均匀的面，烟雾穿过只整体变暗、不再破碎 */
 .footer {
   border-top: 1px solid var(--line);
   overflow: hidden;
 }
-.footer__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* 信息层：左联络右版权，两端对齐；底对齐让两块收在同一基线上 */
+.footer__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
   gap: 32px;
   padding: clamp(48px, 8vh, 88px) var(--gutter) 0;
 }
 .footer__label {
   margin-bottom: 18px;
 }
-.footer__col ul {
-  list-style: none;
-  display: grid;
-  gap: 10px;
+/* 联络链接：mono 细字横排——与版权行同一「细字层」密度 */
+.footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
 }
-.footer__col a {
-  font-size: 15px;
+.footer__links a {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
   transition: color 0.25s;
 }
-.footer__col a:hover {
+.footer__links a:hover {
   color: var(--accent);
-}
-
-.footer__col--end {
-  justify-self: end;
-  text-align: right;
-  display: grid;
-  justify-items: end;
-  gap: 20px;
-}
-/* 朱砂印章：直角方章 + 竖排白字，微倾 -4deg——全站唯一的「斜」 */
-.seal {
-  display: grid;
-  place-items: center;
-  width: 54px;
-  height: 54px;
-  background: var(--accent);
-  color: var(--void);
-  writing-mode: vertical-rl;
-  font-weight: 900;
-  font-size: 20px;
-  letter-spacing: 0.12em;
-  transform: rotate(-4deg);
 }
 .footer__fine {
   font-family: var(--font-mono);
@@ -723,18 +756,79 @@ html.cursor-hover .cursor__ring {
   line-height: 2;
   letter-spacing: 0.16em;
   color: var(--smoke);
+  text-align: right;
 }
-
-/* 沉底描边巨字：负 margin 让下半裁掉，像字沉入渊里 */
+/* 站点地图标签：直属于 footer（不在网格里），自带宽度的 gutter 内边距 */
+.footer > .footer__label {
+  margin-top: clamp(44px, 7vh, 80px);
+  padding: 0 var(--gutter);
+}
+/* 站点地图：横排编号字行。衬线大字是编辑感主音，mono 小号编号沿用顶栏语言；
+   与顶栏同为 NAV 数据但排版角色不同——顶栏是 mono 12px 功能导航，
+   此处是衬线 20px 级索引，同一信息两种声部，正是大字页脚的惯用手法 */
+.footer__map {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px clamp(24px, 3.2vw, 48px);
+  padding: 0 var(--gutter);
+  margin-top: 26px;
+}
+.footer__map a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: clamp(18px, 1.6vw, 23px);
+  letter-spacing: 0.06em;
+  transition: color 0.25s;
+}
+.footer__map a i {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--smoke);
+  transition: color 0.25s;
+}
+.footer__map a:hover,
+.footer__map a:hover i {
+  color: var(--accent);
+}
+/* 落款：巨字与印章同框。flex 底对齐让印章天然钤在字侧不各挂一角；
+   印章自身 margin-bottom 抬离裁切线——字沉渊里，印要完整可见 */
+.footer__sign {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  margin-top: clamp(32px, 6vh, 64px);
+}
+/* 朱砂印章：直角方章 + 竖排字，微倾 -4deg——全站唯一的「斜」；
+   尺寸随视口流动，在 26vw 巨字旁保持「一方印」的体量比 */
+.seal {
+  display: grid;
+  place-items: center;
+  width: clamp(54px, 6vw, 92px);
+  height: clamp(54px, 6vw, 92px);
+  background: var(--accent);
+  color: var(--void);
+  writing-mode: vertical-rl;
+  font-weight: 900;
+  font-size: clamp(20px, 2.1vw, 32px);
+  letter-spacing: 0.12em;
+  transform: rotate(-4deg);
+  margin-left: clamp(14px, 2.5vw, 40px);
+  margin-bottom: clamp(24px, 4.5vw, 72px);
+}
+/* 沉底巨字：实心低透明水印（6% 骨白）。负 margin 让下半裁掉，像字沉入渊里 */
 .footer__big {
-  margin-top: clamp(24px, 5vh, 56px);
   margin-bottom: -0.18em;
-  text-align: center;
   font-weight: 900;
   font-size: 26vw;
   line-height: 0.82;
-  color: transparent;
-  -webkit-text-stroke: 1px rgba(242, 240, 234, 0.22);
+  color: rgba(242, 240, 234, 0.06);
   user-select: none;
   pointer-events: none;
 }
@@ -785,7 +879,7 @@ body.is-live .hero__title .gi {
     grid-template-columns: 48px 1fr 32px;
   }
   .row__cat,
-  .row__date {
+  .row__datewrap {
     display: none;
   }
   .row__sub {
@@ -794,14 +888,24 @@ body.is-live .hero__title .gi {
   .row__arrow {
     font-size: 18px;
   }
-  .footer__grid {
+  /* 上/下篇导航卡改单列纵排；落单的「下一篇」卡回正左列 */
+  .post-foot__nav {
     grid-template-columns: 1fr;
-    gap: 40px;
   }
-  .footer__col--end {
-    justify-self: start;
+  .post-foot__card--next:only-child {
+    grid-column: auto;
+  }
+  .post-foot__card--next {
     text-align: left;
-    justify-items: start;
+  }
+  /* 页脚信息层改纵向堆叠：联络块在上、版权行在下并回正左对齐 */
+  .footer__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 36px;
+  }
+  .footer__fine {
+    text-align: left;
   }
 }
 
@@ -951,7 +1055,29 @@ body.is-live .hero__title .gi {
 }
 
 /* ---------- 14 文章正文 ---------- */
-/* 文章头：编号 + 日期 + 标签眉行，再接巨标题与导语 */
+
+/* 阅读进度条：顶栏（fixed 60px）下沿的 2px 朱砂细线，
+   scaleX 由 main.js 随滚动驱动；transform 动画零重排，
+   origin:left 让线从左往右「写」过去，像卷轴读到哪展开到哪 */
+.read-progress {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 29; /* 顶栏 z-30 之下，浮层之下 */
+  pointer-events: none;
+}
+.read-progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  will-change: transform;
+}
+
+/* 文章头：编号 + 日期 + 阅读时长 + 标签眉行，再接巨标题与导语 */
 .post-head {
   padding: clamp(120px, 20vh, 180px) var(--gutter) clamp(40px, 8vh, 72px);
 }
@@ -999,7 +1125,10 @@ body.is-live .hero__title .gi {
   border: 1px solid var(--line);
 }
 
-/* 正文容器：约 38em 单栏，居中，压在流体墨之上 */
+/* 正文容器：约 38em 单栏，居中，压在流体墨之上。
+   桌面端（≥1280px）升级为三列网格 1fr | 正文 | 1fr，
+   右列放吸顶目录（见下方 1280px 媒体查询）；窄屏保持普通块级流，
+   目录折成一篇文章开头的 <details> 面板（.post-toc-m） */
 .prose-wrap {
   padding: 0 var(--gutter) clamp(72px, 14vh, 160px);
 }
@@ -1011,6 +1140,138 @@ body.is-live .hero__title .gi {
 }
 .prose > * + * {
   margin-top: 1.2em;
+}
+
+/* ---------- 14b 文章目录 ---------- */
+/* 移动端目录：正文开头的折叠面板，<details> 原生交互零 JS；
+   默认收起，summary 是一行 mono 细字（与 sec-head 同语言） */
+.post-toc-m {
+  max-width: 38em;
+  margin: 0 auto clamp(28px, 5vh, 44px);
+  border: 1px solid var(--line);
+  padding: 14px 18px;
+}
+.post-toc-m summary {
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--smoke);
+  transition: color 0.25s;
+}
+.post-toc-m summary::-webkit-details-marker {
+  display: none; /* 干掉浏览器默认三角，保持直角锐利语言 */
+}
+.post-toc-m summary::after {
+  content: '+';
+  float: right;
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
+}
+.post-toc-m[open] summary::after {
+  content: '−';
+}
+.post-toc-m summary:hover {
+  color: var(--accent);
+}
+.post-toc-m ul {
+  list-style: none;
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.post-toc-m a {
+  display: block;
+  padding: 7px 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--smoke);
+  transition: color 0.25s;
+}
+.post-toc-m a:hover {
+  color: var(--bone);
+}
+.post-toc-m a.is-active {
+  color: var(--accent);
+}
+/* 三级标题缩进一档（与桌面目录同一语言） */
+.post-toc-m .post-toc__item--d3 a {
+  padding-left: 1.4em;
+}
+
+/* 桌面端目录：默认隐藏，≥1280px 显示为正文右侧吸顶侧栏 */
+.post-toc {
+  display: none;
+}
+.post-toc__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--smoke);
+  margin-bottom: 14px;
+}
+.post-toc ul {
+  list-style: none;
+  border-left: 1px solid var(--line); /* 左侧发丝线轨，高亮条骑在线上 */
+}
+.post-toc a {
+  position: relative;
+  display: block;
+  padding: 6px 0 6px 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--smoke);
+  transition: color 0.25s;
+}
+.post-toc a:hover {
+  color: var(--bone);
+}
+/* 当前节：文字转朱砂 + 2px 朱砂短条压在轨道线上（与 .row 左缘细线同语言） */
+.post-toc a.is-active {
+  color: var(--accent);
+}
+.post-toc a.is-active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--accent);
+}
+.post-toc .post-toc__item--d3 a {
+  padding-left: 32px; /* h3 缩进一档 */
+}
+
+/* ≥1280px：正文改三列网格，目录吸顶右栏 */
+@media (min-width: 1280px) {
+  .prose-wrap {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; /* 中列宽度由 .prose 自身 max-width 决定 */
+  }
+  .prose {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0; /* 网格内不再需要 auto 居中 */
+  }
+  .post-toc {
+    display: block;
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: start;
+    align-self: start;
+    position: sticky;
+    top: 96px; /* 顶栏 60px + 呼吸 36px */
+    margin-left: clamp(24px, 3vw, 56px);
+    width: 220px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto; /* 目录超长时自身滚动，不撑破吸顶 */
+  }
+  .post-toc-m {
+    display: none;
+  }
 }
 
 /* 二三级标题：细发丝线上界 + 900 重字，维持全站锋利气质 */
@@ -1091,6 +1352,57 @@ body.is-live .hero__title .gi {
   padding: 0;
 }
 
+/* 代码块复制：main.js 把 pre 包进 .codeblock 定位容器，按钮浮在右上角。
+   默认透明，悬停代码块/键盘聚焦时浮现；触屏（hover:none）常显 */
+.codeblock {
+  position: relative;
+}
+.code-copy {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em; /* 补偿尾距，两字视觉居中 */
+  color: var(--smoke);
+  background: var(--void);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.25s, color 0.25s, border-color 0.25s;
+}
+.codeblock:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+.code-copy:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+@media (hover: none) {
+  .code-copy {
+    opacity: 1; /* 触屏没有 hover：常显，否则永远找不到 */
+  }
+}
+
+/* 标题深链锚点：main.js 给每个 h2/h3 尾部挂「#」，
+   悬停标题时浮现，点击后 URL 带锚点可直接分享定位 */
+.h-anchor {
+  margin-left: 0.45em;
+  font-size: 0.72em;
+  font-weight: 400;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.prose h2:hover .h-anchor,
+.prose h3:hover .h-anchor,
+.h-anchor:focus-visible {
+  opacity: 1;
+}
+
 /* 图片：直角 + 发丝线框 + 底部等宽图注位 */
 .prose img {
   display: block;
@@ -1105,9 +1417,53 @@ body.is-live .hero__title .gi {
   margin: 2.4em 0;
 }
 
-/* 文末导航：返回列表 + 上一篇/下一篇位（当前只做返回） */
+/* 文末导航：上层 = 上一篇/下一篇卡（2026-09-11 新增），下层 = 返回列表 */
 .post-foot {
   padding: 0 var(--gutter) clamp(72px, 12vh, 120px);
+}
+/* 上一篇/下一篇：两枚发丝线框卡。悬停语言与 .row 一致——
+   边框微亮 + 方向词与标题转朱砂，不整块反色 */
+.post-foot__nav {
+  max-width: 38em;
+  margin: 0 auto clamp(20px, 4vh, 36px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.post-foot__card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: clamp(18px, 3vh, 26px) clamp(16px, 2.5vw, 24px);
+  border: 1px solid var(--line);
+  transition: border-color 0.3s;
+}
+.post-foot__card:hover {
+  border-color: rgba(242, 240, 234, 0.34);
+}
+/* 只有「下一篇」落单时（全站最新一篇文章）推到右列，保住左右语义位 */
+.post-foot__card--next:only-child {
+  grid-column: 2;
+}
+.post-foot__dir {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--smoke);
+  transition: color 0.25s;
+}
+.post-foot__title {
+  font-weight: 700;
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.45;
+  transition: color 0.25s;
+}
+.post-foot__card:hover .post-foot__dir,
+.post-foot__card:hover .post-foot__title {
+  color: var(--accent);
+}
+.post-foot__card--next {
+  text-align: right; /* 右卡方向词与标题右对齐，箭头朝外 */
 }
 .post-foot__inner {
   max-width: 38em;
@@ -2449,5 +2805,122 @@ a.work-card__link:hover::before {
   .idea-entry {
     grid-template-columns: 18px 1fr;
     gap: 12px;
+  }
+}
+
+/* ============================================================
+   24 三维书房舞台（garden 第一屏）
+   ============================================================
+   分层不替换：#garden-stage 永远有 CSS 宣纸底——无 JS / WebGL 失败时
+   它就是静态画面本体；garden-room.ts 挂载成功后 canvas 覆盖其上。
+   topbar 是 fixed 60px 半透明渊底毛玻璃，舞台从文档 y=0 起铺，
+   让栏底直接压在纸面上（3D 构图已把重心放在 60px 之下）。 */
+#garden-stage {
+  position: relative;
+  height: 100dvh;
+  min-height: 480px;
+  overflow: hidden;
+  /* 静态宣纸底 = 降级画面：
+     底缘墨晕 + 顶部微暗 + 三团云斑 + 骨白（与程序化纹理同一套语言） */
+  background:
+    linear-gradient(to top, rgba(7, 7, 7, 0.18), rgba(7, 7, 7, 0) 20%),
+    linear-gradient(to bottom, rgba(7, 7, 7, 0.07), rgba(7, 7, 7, 0) 16%),
+    radial-gradient(58% 46% at 22% 30%, rgba(138, 135, 129, 0.1), transparent 72%),
+    radial-gradient(46% 40% at 78% 58%, rgba(138, 135, 129, 0.09), transparent 70%),
+    radial-gradient(38% 55% at 54% 12%, rgba(138, 135, 129, 0.06), transparent 70%),
+    var(--bone);
+}
+
+/* 3D 接管态：场景挂载成功后由 garden-room.ts 加 is-live。
+   地板是墨渊黑，「向下」引导的深墨会隐形——切换为骨白半透明。
+   无 JS / WebGL 降级时不加此类，cue 保持深墨在宣纸底上可见。 */
+#garden-stage.is-live .stage-cue {
+  color: rgba(242, 240, 234, 0.66);
+}
+
+/* canvas 宿主：铺满舞台；canvas 本体尺寸由 garden-room.ts 按宿主实测控制 */
+#garden-stage-canvas {
+  position: absolute;
+  inset: 0;
+}
+#garden-stage-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* —— 墙上题字：竖排两列（vertical-rl 自右向左读）+ 朱砂小印 ——
+   是「贴在墙上的字」：3D 与静态降级里都成立，故独立于 canvas 之上 */
+.stage-words {
+  position: absolute;
+  top: 50%;
+  right: clamp(24px, 8vw, 120px);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: flex-end; /* 印钤在字尾下方——书法落款的常识 */
+  gap: 16px;
+  pointer-events: none;
+}
+.stage-slogan {
+  margin: 0;
+  writing-mode: vertical-rl;
+  font-family: var(--font-serif);
+  font-weight: 900;
+  font-size: clamp(20px, 3.2vw, 34px);
+  letter-spacing: 0.42em; /* 竖排时作用于纵向字距 */
+  line-height: 1.9;       /* 两列的列距 */
+  color: rgba(7, 7, 7, 0.86);
+}
+.stage-seal {
+  writing-mode: vertical-rl;
+  background: var(--accent); /* 朱砂唯一彩色原则：印是全舞台唯一彩点 */
+  color: var(--bone);
+  font-family: var(--font-serif);
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+  padding: 9px 5px;
+}
+
+/* —— 向下引导：锚到 #garden-content（页头）—— */
+.stage-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: rgba(7, 7, 7, 0.55);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+.stage-cue:hover {
+  color: var(--accent);
+}
+.stage-cue i {
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1;
+  animation: stage-cue-float 2.6s ease-in-out infinite;
+}
+@keyframes stage-cue-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+/* 动效降级：箭头停摆，其余不动 */
+@media (prefers-reduced-motion: reduce) {
+  .stage-cue i {
+    animation: none;
   }
 }
