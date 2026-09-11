@@ -1,0 +1,86 @@
+---
+// ============================================================
+// PhotosView.astro — 相册共享模板（中英两站渲染同一结构）
+// ============================================================
+// 数据源：public/photos/ 目录构建期自动扫描（src/data/photos.ts）。
+// 零维护：图片丢进目录即上墙，文件名即图注（日期前缀可选）——
+// 图注与日期是内容，不译；界面文案走 t.photos.* 字典列。
+// 空目录 = 真实的「胶卷未装」状态：显示投放说明面板，不放假图占位。
+// 空态步骤文案含 <code> 片段，以 set:html 渲染（字典列即 HTML 片段）。
+// ============================================================
+
+import Base from '../layouts/Base.astro';
+import { scanPhotos } from '../data/photos';
+import { ui, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言（壳里写死） */
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui[lang];
+
+// 目录扫描（内部已按日期倒序：新照片在前）
+const photos = scanPhotos();
+---
+
+<Base lang={lang} title={t.photos.title} description={t.photos.desc}>
+  <!-- ===== 页头 ===== -->
+  <header class="page-head">
+    <p class="page-head__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      {t.photos.kicker}
+    </p>
+    <h1 class="page-head__title" aria-label={t.photos.giantAria}>
+      {t.photos.giant.map((ch, i) => (
+        <span
+          class:list={[{ hollow: i === Math.min(1, t.photos.giant.length - 1) }]}
+          data-rv
+          style={`--d:${0.08 + 0.1 * i}s`}
+        >
+          {ch}
+        </span>
+      ))}
+    </h1>
+    <p class="page-head__meta" data-rv style="--d:.28s">
+      <span>{t.photos.metaSub}</span>
+      <span>{String(photos.length).padStart(2, '0')} FRAMES</span>
+    </p>
+  </header>
+
+  {photos.length === 0 ? (
+    <!-- ===== 空状态：胶卷未装（真实状态，指引投放） ===== -->
+    <section class="photos-empty" data-rv aria-label={t.photos.emptyAria}>
+      <p class="photos-empty__mark" aria-hidden="true">▢</p>
+      <h2 class="photos-empty__title">{t.photos.emptyTitle}</h2>
+      <p class="photos-empty__desc">
+        {t.photos.emptyDesc}
+      </p>
+      <ol class="photos-empty__steps">
+        <li set:html={t.photos.emptyStep1} />
+        <li set:html={t.photos.emptyStep2} />
+        <li set:html={t.photos.emptyStep3} />
+      </ol>
+    </section>
+  ) : (
+    <!-- ===== 照片网格 ===== -->
+    <section class="photos-grid" aria-label={t.photos.gridAria}>
+      {photos.map((p, i) => (
+        <figure class="photo" data-rv>
+          <div class="photo__frame">
+            <img src={p.src} alt={p.title} loading="lazy" decoding="async" />
+          </div>
+          <figcaption class="photo__cap">
+            <span class="photo__no">P-{String(i + 1).padStart(2, '0')}</span>
+            <span class="photo__meta">
+              <strong>{p.title}</strong>
+              {p.note && <em>{p.note}</em>}
+            </span>
+            <time class="photo__date" datetime={p.date}>{p.date}</time>
+          </figcaption>
+        </figure>
+      ))}
+    </section>
+  )}
+</Base>

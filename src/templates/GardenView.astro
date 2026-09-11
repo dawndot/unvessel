@@ -1,0 +1,217 @@
+---
+// ============================================================
+// GardenView.astro — 自留地共享模板（爱好区 + 灵感区 + 3D 书房舞台）
+// ============================================================
+// 数据源：
+//   爱好区 src/data/garden.ts（GARDEN 数组，加条目 = 加一条 + build；
+//          门类 kind 是自由字符串，页面按值自动分组——加门类不加码）。
+//          条目的 title/meta/note 属于「内容」，不译（英文站原样显示）；
+//          状态标签走 t.garden.status 字典列（进行中/想/记录 ↔ Doing/Wish/Done）。
+//   灵感区 src/content/ideas/*.md（ideas 集合，CLI `unv idea "一句话"` 秒记）。
+// 结构：书房舞台（3D 第一屏，garden-room.ts 挂载；无 JS/WebGL 时为 CSS 宣纸底）
+//       → 页头 → 爱好分组（行式列表）→ 灵感时间线（倒序）。
+// 书房墙上的题字「愿被看见 / 不被定义」与朱砂小印是视觉装饰，不译。
+// 灵感正文是纯文本（frontmatter text 字段），不走 markdown 渲染管线，
+// 换行按 pre-line 展示——碎片不需要排版能力，需要落盘即上线。
+// ============================================================
+
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { GARDEN } from '../data/garden';
+import type { GardenItem, GardenStatus } from '../data/garden';
+import { formatDate } from '../lib/utils';
+import { ui, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言（壳里写死） */
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui[lang];
+
+// —— 爱好区：按门类分组（Map 保持插入序：分组顺序 = 数组出现顺序）——
+const groups = new Map<string, GardenItem[]>();
+for (const item of GARDEN) {
+  const list = groups.get(item.kind) ?? [];
+  list.push(item);
+  groups.set(item.kind, list);
+}
+
+// —— 灵感区：非草稿，按日期倒序（新的在上）——
+const ideas = (await getCollection('ideas', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+/** 状态标记符号（对齐作品集视觉语言）：进行中朱砂实菱 / 愿望呼吸点 / 完成烟灰空心 */
+const STATUS_MARK: Record<GardenStatus, string> = { doing: '◆', wish: '◉', done: '○' };
+
+/** 来源链接只显示域名，完整地址放 title（悬停可见），避免长 URL 撑爆时间线 */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+---
+
+<Base lang={lang} title={t.garden.title} description={t.garden.desc}>
+  <!-- ===== 书房舞台：3D 房间壳体（P1，garden-room.ts 挂载） =====
+       分层不替换：canvas 叠在 CSS 宣纸底之上——WebGL 失败或无 JS 时
+       canvas 不出现，宣纸底与题字构成静态画面，下方 2D 内容永远可达。
+       topbar 是 fixed 半透明渊底毛玻璃，舞台从文档 y=0 起铺，让栏底压在纸面上。 -->
+  <section id="garden-stage" aria-label={t.garden.stageAria}>
+    <!-- WebGL 画布宿主：挂载成功则填满舞台，失败则保持空（露出宣纸底） -->
+    <div id="garden-stage-canvas" aria-hidden="true"></div>
+    <!-- 墙上题字：竖排 slogan + 朱砂小印（视觉装饰，任何语言保持中文原样） -->
+    <div class="stage-words">
+      <p class="stage-slogan">愿被看见<br />不被定义</p>
+      <span class="stage-seal" aria-hidden="true">不器</span>
+    </div>
+    <!-- 向下引导：锚到 2D 内容区（html 已有 smooth 滚动与 72px 锚点余量） -->
+    <a class="stage-cue" href="#garden-content">
+      <span>{t.garden.cue}</span>
+      <i aria-hidden="true">↓</i>
+    </a>
+  </section>
+
+  <!-- ===== 页头（锚点 #garden-content：舞台向下引导的落点） ===== -->
+  <header class="page-head" id="garden-content">
+    <p class="page-head__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      {t.garden.kicker}
+    </p>
+    <h1 class="page-head__title" aria-label={t.garden.giantAria}>
+      {t.garden.giant.map((ch, i) => (
+        <span
+          class:list={[{ hollow: i === Math.min(1, t.garden.giant.length - 1) }]}
+          data-rv
+          style={`--d:${0.08 + 0.08 * i}s`}
+        >
+          {ch}
+        </span>
+      ))}
+    </h1>
+    <p class="page-head__meta" data-rv style="--d:.32s">
+      <span>{t.garden.metaSub}</span>
+      <span>{GARDEN.length} ITEMS · {ideas.length} SPARKS</span>
+    </p>
+  </header>
+
+  <!-- ===== 爱好区：门类自动分组 ===== -->
+  <section class="garden-groups" aria-label={t.garden.groupsAria}>
+    {[...groups.entries()].map(([kind, items]) => (
+      <div class="garden-group" data-rv>
+        <h2 class="garden-group__title">
+          {kind}
+          <span>{String(items.length).padStart(2, '0')}</span>
+        </h2>
+        <ul class="garden-group__list">
+          {items.map((item) => {
+            // 行内容（状态 + 条目名 + 元信息 + 日期）：有真实外链才包 <a>，
+            // 无链接的条目是纯展示行，不假装可点（链接纪律同作品集）
+            const statusLabel = t.garden.status[item.status] ?? item.status;
+            const row = (
+              <>
+                <span class={`garden-item__status garden-item__status--${item.status}`}>
+                  <i aria-hidden="true">{STATUS_MARK[item.status]}</i>
+                  {statusLabel}
+                </span>
+                <span class="garden-item__title">{item.title}</span>
+                <span class="garden-item__meta">{item.meta}</span>
+                <time class="garden-item__date" datetime={item.date}>{item.date}</time>
+              </>
+            );
+            return (
+              <li class="garden-item">
+                {item.link ? (
+                  <a
+                    class="garden-item__row garden-item__row--link"
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${item.title}（${statusLabel}${t.garden.externalSuffix}）`}
+                  >
+                    {row}
+                    <span class="garden-item__arrow" aria-hidden="true">↗</span>
+                  </a>
+                ) : (
+                  <div class="garden-item__row">
+                    {row}
+                    {/* 箭头列占位：无链接条目保持五列对齐，列是空的 */}
+                    <span class="garden-item__arrow" aria-hidden="true"></span>
+                  </div>
+                )}
+                <p class="garden-item__note">{item.note}</p>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ))}
+  </section>
+
+  <!-- ===== 灵感区：随手记时间线 ===== -->
+  <section class="garden-sparks" aria-label={t.garden.sparksAria}>
+    <p class="garden-sparks__label" data-rv>
+      SPARKS<span>{t.garden.sparksLabel}</span>
+    </p>
+    <div class="timeline">
+      {ideas.map((entry, i) => (
+        <article class="idea-entry" data-rv>
+          <div class="idea-entry__rail" aria-hidden="true">
+            <i class="idea-entry__dot"></i>
+            {i < ideas.length - 1 && <span class="idea-entry__line"></span>}
+          </div>
+          <div class="idea-entry__body">
+            <header class="idea-entry__head">
+              <time class="idea-entry__date" datetime={entry.data.date.toISOString()}>
+                {formatDate(entry.data.date)}
+              </time>
+              {entry.data.mood && <span class="idea-entry__mood">{entry.data.mood}</span>}
+            </header>
+            <p class="idea-entry__text">{entry.data.text}</p>
+            {entry.data.image && (
+              <img
+                class="idea-entry__image"
+                src={entry.data.image}
+                alt={entry.data.text.slice(0, 50)}
+                loading="lazy"
+              />
+            )}
+            {entry.data.link && (
+              <a
+                class="idea-entry__link"
+                href={entry.data.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={entry.data.link}
+              >
+                {hostOf(entry.data.link)} ↗
+              </a>
+            )}
+          </div>
+        </article>
+      ))}
+      {ideas.length === 0 && <p class="garden-sparks__empty">{t.garden.sparksEmpty}</p>}
+    </div>
+  </section>
+
+  <!-- ===== 书房舞台装配：视图过渡生命周期 =====
+       ClientRouter 下 astro:page-load 首载与每次换页后都会触发（幂等挂载）；
+       astro:before-swap 换页前拆除 RAF / ResizeObserver，防止泄漏到下一页。
+       残留监听在其他页触发时（stage 不存在）确保场景已拆除。 -->
+  <script>
+    import { mountGardenRoom, unmountGardenRoom } from '../scripts/garden-room';
+
+    document.addEventListener('astro:page-load', () => {
+      if (!document.getElementById('garden-stage')) {
+        unmountGardenRoom();
+        return;
+      }
+      mountGardenRoom();
+    });
+    document.addEventListener('astro:before-swap', () => unmountGardenRoom());
+  </script>
+</Base>

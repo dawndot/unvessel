@@ -8,6 +8,16 @@
    用「三层域扭曲 fbm」把噪声拉成墨丝，靠近指针处把坐标
    旋转搅动——墨被搅开时，朱砂从渊底泛上来。
 
+   双主题（2026-09-11 明暗改造）：
+   uniform u_light（0=渊墨暗色 / 1=宣纸亮色）驱动整段上色：
+   - 底色 mix 渊黑 ↔ 宣纸米白，朱砂 ↔ 印泥深朱；
+   - 所有「叠加」统一改写为 mix(col, target, k)：暗底下 col≈0，
+     lerp 与旧版加法数值几乎一致（视觉不变）；亮底下自动变成
+     「向墨色靠拢」——一套着色逻辑，两个主题同时物理正确。
+   JS 侧监听 unv:theme（main.js 点切换时派发）与 astro:after-swap
+   （ClientRouter 换页会丢 html 属性，main.js 兜底重设），
+   两处都只需重发一次 uniform；reduced 静帧模式下还要重画一帧。
+
    Astro 适配说明：
    站点启用 <ClientRouter /> 视图过渡，#ink-canvas 加了
    transition:persist——跨页时画布是同一个元素，GL 上下文
@@ -67,6 +77,7 @@ export function startInk() {
     'uniform vec2  u_res;    // 画布像素尺寸',
     'uniform float u_time;   // 累计时间（秒），切换页签不跳变',
     'uniform vec2  u_mouse;  // 平滑后的指针位置（0..1，y 已翻转为 GL 坐标）',
+    'uniform float u_light;  // 主题：0=渊墨（暗） 1=宣纸（亮），由 JS 随 data-theme 更新',
 
     // —— 基础工具：哈希 → 值噪声 → fbm ——
     'float hash(vec2 p) {',
@@ -119,20 +130,29 @@ export function startInk() {
     '  float r = fbm(p * 1.3 + 3.2 * q + vec2(-t * 0.5, t * 0.7) + 11.3);',
     '  float f = fbm(p * 2.1 + 2.6 * r + vec2(t * 0.35, t * 0.2));',
 
-    // —— 上色：渊底 → 淡烟 → 丝缕高光 → 朱砂 → 暗角 ——
-    '  vec3 col = vec3(0.016, 0.016, 0.018);',          // 渊底（比纯黑亮一丝）
+    // —— 上色（双主题）：u_light 0=渊墨 1=宣纸 ——
+    // 叠加一律 mix(col, target, k)：暗底下 col≈0，lerp 与旧版加法几乎
+    // 等值（视觉零回归）；亮底下自动变为「向墨色靠拢」——一套逻辑两读。
+    // 底色：渊黑 #040404ish ↔ 宣纸 #f4f1e8（与 global.css 令牌同源）
+    '  vec3 col = mix(vec3(0.016, 0.016, 0.018), vec3(0.957, 0.945, 0.910), u_light);',
     '  float smoke = smoothstep(0.42, 0.92, f);',
-    '  col += vec3(0.62, 0.60, 0.56) * smoke * smoke * 0.10;', // 大片淡烟（平方压暗）
+    // 大片淡烟：暗=亮烟浮起 / 亮=淡墨晕开
+    '  vec3 smokeCol = mix(vec3(0.62, 0.60, 0.56), vec3(0.16, 0.15, 0.13), u_light);',
+    '  col = mix(col, smokeCol, smoke * smoke * 0.10);',
+    // 细亮丝缕：暗=墨的「毫」（亮丝）/ 亮=纸上的浓墨毫
     '  float fil = 1.0 - smoothstep(0.0, 0.06, abs(f - 0.52));',
-    '  col += vec3(0.85, 0.83, 0.78) * fil * 0.14;',    // 细亮丝缕：墨的「毫」
+    '  vec3 filCol = mix(vec3(0.85, 0.83, 0.78), vec3(0.30, 0.28, 0.25), u_light);',
+    '  col = mix(col, filCol, fil * 0.14);',
 
     // 朱砂：另一层低频噪声决定「哪里泛朱砂」；
-    // 指针附近概率放大（fall 加权）——墨被搅动时朱砂才浮上来
+    // 指针附近概率放大（fall 加权）——墨被搅动时朱砂才浮上来。
+    // 暗色朱砂 #ff3b2f ↔ 亮色印泥深朱 #d43518（与 global.css --accent 同步）
     '  float veil = fbm(p * 0.8 - vec2(t * 0.5, t * 0.3) + 31.7);',
     '  float cinnabar = smoothstep(0.58, 0.86, veil) * (0.25 + 0.75 * fall);',
-    '  col += vec3(1.0, 0.23, 0.18) * cinnabar * 0.32;',
+    '  vec3 cinnabarCol = mix(vec3(1.0, 0.23, 0.18), vec3(0.83, 0.21, 0.09), u_light);',
+    '  col = mix(col, cinnabarCol, cinnabar * 0.32);',
 
-    // 暗角：四周压进渊底，视线聚焦中心，巨字更立体
+    // 暗角：暗色=四周压进渊底聚焦视线；亮色=纸缘光影微沉。同一公式两读
     '  col *= 1.0 - dot(uv, uv) * 0.35;',
 
     '  gl_FragColor = vec4(col, 1.0);',
@@ -182,6 +202,7 @@ export function startInk() {
     uni.res = gl.getUniformLocation(prog, 'u_res');
     uni.time = gl.getUniformLocation(prog, 'u_time');
     uni.mouse = gl.getUniformLocation(prog, 'u_mouse');
+    uni.light = gl.getUniformLocation(prog, 'u_light'); // 双主题开关（0 暗 / 1 亮）
     return true;
   }
 
@@ -255,28 +276,58 @@ export function startInk() {
     return;
   }
 
-  /** 停帧并解绑监听（供新实例替换旧画布时清理） */
-  function destroy() {
-    stop();
-    window.removeEventListener('pointermove', onPointerMove);
-    document.removeEventListener('visibilitychange', onVisChange);
-  }
-  function onVisChange() {
-    document.hidden ? stop() : start();
-  }
-
-  if (reduced) {
-    // 减少动效偏好：只画一帧静帧（t 固定，涡流在默认偏置点）
+  /** 画一帧定格静帧（reduced 模式专用）：t 固定，涡流停在默认偏置点 */
+  function drawStill() {
     resize();
     gl.uniform2f(uni.res, canvas.width, canvas.height);
     gl.uniform1f(uni.time, 3.7); // 挑一个墨形好看的瞬间定格
     gl.uniform2f(uni.mouse, mouse.x, mouse.y);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-  } else {
+  }
+
+  /**
+   * 主题同步：读 html[data-theme] → 重发 u_light uniform。
+   * data-theme 由 Base.astro 内联脚本在首帧前定好（记忆 > 系统偏好 >
+   * 暗色）；此后 main.js 点切换派发 unv:theme，ClientRouter 换页兜底
+   * 触发 astro:after-swap——两个事件都会流到这里。动画模式下 uniform
+   * 一改，下一帧 RAF 自动用新值；reduced 静帧模式没有 RAF，必须手动
+   * 重画一帧才看得到变化。
+   */
+  function syncTheme() {
+    gl.uniform1f(uni.light, document.documentElement.dataset.theme === 'light' ? 1 : 0);
+    if (reduced) drawStill();
+  }
+
+  /** 停帧并解绑监听（供新实例替换旧画布时清理） */
+  function destroy() {
+    stop();
+    window.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('visibilitychange', onVisChange);
+    document.removeEventListener('unv:theme', syncTheme);
+    document.removeEventListener('astro:after-swap', syncTheme);
+  }
+  function onVisChange() {
+    document.hidden ? stop() : start();
+  }
+
+  // 主题事件跟随（reduced / 动画两种模式都要挂）：
+  // - unv:theme：main.js 点切换按钮后派发到 document；
+  // - astro:after-swap：ClientRouter 换页会重写 html 属性，main.js 从
+  //   localStorage 兜底重设 data-theme 后，这里再读一次让画布跟上颜色。
+  //   （main.js 的监听先于本文件注册，读到的必是已修正的值。）
+  document.addEventListener('unv:theme', syncTheme);
+  document.addEventListener('astro:after-swap', syncTheme);
+
+  if (!reduced) {
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     document.addEventListener('visibilitychange', onVisChange);
     start();
   }
+
+  // 首次主题同步：u_light 的 GL 默认值是 0（暗色），亮色用户若不同步
+  // 会先看到暗底闪一帧。动画模式下这行赶在第一帧 RAF 之前执行；
+  // reduced 模式下它顺带画出定格静帧。
+  syncTheme();
 
   // 上下文丢失/恢复（GPU 重置、驱动切换等）：停帧 → 重建 → 续播
   canvas.addEventListener('webglcontextlost', (e) => {
@@ -284,7 +335,13 @@ export function startInk() {
     stop();
   });
   canvas.addEventListener('webglcontextrestored', () => {
-    if (build()) start();
+    // 上下文重建后所有 uniform/缓冲全部失效：build() 重装程序，
+    // syncTheme() 重发主题（reduced 下顺带重画静帧），start() 续播
+    //（reduced 下 start 自身 no-op，静帧已由 syncTheme 画好）。
+    if (build()) {
+      syncTheme();
+      start();
+    }
   });
 
   live = { canvas, destroy };

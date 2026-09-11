@@ -1,0 +1,102 @@
+---
+// ============================================================
+// WorksView.astro — 作品集共享模板（中英两站渲染同一结构）
+// ============================================================
+// 数据源：src/data/works.ts（加作品 = 数组加一条 + build）。
+// 作品的 title / desc 属于「内容」——不进字典、不译，
+// 英文站原样显示中文条目（内容跟稿子走，界面跟语言走）。
+// 界面文案（页头 / 状态标签 / 无链接后缀）走 t.works.* 字典列。
+// 视觉：编号大卡 + 状态标记（live 朱砂 ◆ / building 呼吸点 / archive 烟灰），
+// 整卡可点（站内 href 或站外 url，站外新标签打开）。
+// ============================================================
+
+import Base from '../layouts/Base.astro';
+import { WORKS } from '../data/works';
+import type { Work } from '../data/works';
+import { ui, localePath, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言（壳里写死） */
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui[lang];
+
+/** 作品链接：站内走 href，站外走 url（target=_blank） */
+function linkOf(w: Work): string {
+  return w.href ?? w.url ?? '';
+}
+---
+
+<Base lang={lang} title={t.works.title} description={t.works.desc}>
+  <!-- ===== 页头 ===== -->
+  <header class="page-head">
+    <p class="page-head__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      {t.works.kicker}
+    </p>
+    <h1 class="page-head__title" aria-label={t.works.giantAria}>
+      {t.works.giant.map((ch, i) => (
+        <span
+          class:list={[{ hollow: i === Math.min(1, t.works.giant.length - 1) }]}
+          data-rv
+          style={`--d:${0.08 + 0.1 * i}s`}
+        >
+          {ch}
+        </span>
+      ))}
+    </h1>
+    <p class="page-head__meta" data-rv style="--d:.28s">
+      <span>{t.works.metaSub}</span>
+      <span>{String(WORKS.length).padStart(2, '0')} ITEMS</span>
+    </p>
+  </header>
+
+  <!-- ===== 作品列表 ===== -->
+  <section class="works-page" aria-label={t.works.listAria}>
+    {WORKS.map((w, i) => {
+      const href = linkOf(w);
+      const external = Boolean(w.url);
+      // 状态标签走字典列（zh: 上线/在建/归档；en: Live/Building/Archive）
+      const statusLabel = t.works.status[w.status] ?? w.status;
+      const inner = (
+        <>
+          <div class="work-card__top">
+            <span class="work-card__no">W-{String(i + 1).padStart(2, '0')}</span>
+            <span class={`work-card__status work-card__status--${w.status}`}>
+              <i aria-hidden="true">{w.status === 'live' ? '◆' : w.status === 'building' ? '◉' : '○'}</i>
+              {statusLabel}
+            </span>
+            <span class="work-card__year">{w.year}</span>
+          </div>
+          <h2 class="work-card__title">{w.title}</h2>
+          <p class="work-card__desc">{w.desc}</p>
+          <div class="work-card__foot">
+            <span class="work-card__tags">{w.tags.join(' / ')}</span>
+            {/* 箭头只在有真实目标时出现：无链接的卡片是「纯展示」，不假装可点 */}
+            {href && <span class="work-card__arrow" aria-hidden="true">{external ? '↗' : '→'}</span>}
+          </div>
+        </>
+      );
+      return (
+        <article class={`work-card work-card--${w.status}`} data-rv>
+          {href ? (
+            <a
+              class="work-card__link"
+              href={href}
+              {...external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}
+              aria-label={`${w.title}（${statusLabel}）`}
+            >
+              {inner}
+            </a>
+          ) : (
+            <div class="work-card__link" aria-label={`${w.title}（${statusLabel}${t.works.noLinkSuffix}）`}>
+              {inner}
+            </div>
+          )}
+        </article>
+      );
+    })}
+  </section>
+</Base>

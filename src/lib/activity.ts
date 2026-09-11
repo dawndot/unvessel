@@ -27,8 +27,12 @@ export interface Activity {
   total: number;
   /** 有产出的天数 */
   activeDays: number;
-  /** 月份刻度：{ col: 列索引, label: '1月' }（每月第一个完整周标注） */
-  monthLabels: { col: number; label: string }[];
+  /**
+   * 月份刻度：{ col: 列索引, month: 1-12 }（每月第一个完整周标注）。
+   * 数据层只存月份数字、不做语言格式化——展示层（Heatmap）按站点语言
+   * 渲染成「9月」（zh）或「Sep」（en），保证数据层语言中立。
+   */
+  monthLabels: { col: number; month: number }[];
 }
 
 /**
@@ -70,7 +74,7 @@ export function buildActivity(dates: Date[], weeks = 53, now: Date = new Date())
 
   // 3. 展开网格
   const grid: ActivityWeek[] = [];
-  const monthLabels: { col: number; label: string }[] = [];
+  const monthLabels: { col: number; month: number }[] = [];
   let total = 0;
   let activeDays = 0;
   let lastMonth = -1;
@@ -88,9 +92,9 @@ export function buildActivity(dates: Date[], weeks = 53, now: Date = new Date())
       const count = freq.get(k) ?? 0;
       total += count;
       if (count > 0) activeDays++;
-      // 月份刻度：该列第一天（周一）进入新月时标注
+      // 月份刻度：该列第一天（周一）进入新月时标注（只存月份数字，格式化在展示层）
       if (dow === 0 && cur.getMonth() !== lastMonth) {
-        monthLabels.push({ col: w, label: `${cur.getMonth() + 1}月` });
+        monthLabels.push({ col: w, month: cur.getMonth() + 1 });
         lastMonth = cur.getMonth();
       }
       week.push({ date: k, count, level: levelOf(count) });

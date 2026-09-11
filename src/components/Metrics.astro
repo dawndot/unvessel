@@ -13,24 +13,31 @@
 //   - 进入文章页自动 POST action=view（服务端做同 IP 去重）；
 //   - 点赞：POST action=like，成功后 localStorage 记忆已赞，
 //     刷新/回访显示「已铭刻」态，重复点击无效。
+//
+// 多语言：「阅读 / 点赞」标签走 i18n 字典 t.metrics.*——HTML 在构建期
+// 已按 lang 渲染成对应语言；脚本部分无用户可见文案，与语言无关。
 // ============================================================
 import { METRICS_API, METRICS_LS_PREFIX } from '../config/site';
+import { ui, type Lang } from '../i18n/ui';
 
 interface Props {
+  /** 站点语言：决定「阅读 / 点赞」标签文案 */
+  lang: Lang;
   /** 文章 slug（= 内容集合 id）：计数器的存储键，也用于 localStorage 已赞标记 */
   slug: string;
 }
 
-const { slug } = Astro.props;
+const { lang, slug } = Astro.props;
+const t = ui[lang];
 ---
 
 <!-- hidden 是唯一初始态：JS 拿到数据才揭开，无 JS / API 缺席时全程不可见 -->
 <div class="metrics" id="metrics" data-slug={slug} hidden>
   <span class="metrics__views">
-    阅读 <b id="metrics-views">—</b>
+    {t.metrics.views} <b id="metrics-views">—</b>
   </span>
   <button class="metrics__like" id="metrics-like" type="button">
-    <i aria-hidden="true">◆</i> 点赞 <b id="metrics-likes">—</b>
+    <i aria-hidden="true">◆</i> {t.metrics.like} <b id="metrics-likes">—</b>
   </button>
 </div>
 

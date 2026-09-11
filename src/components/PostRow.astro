@@ -2,30 +2,44 @@
 // ============================================================
 // PostRow.astro — 文章列表行（克制悬停：标题转朱砂 + 左缘细线）
 // ============================================================
-// 使用处：首页「最新文章」与 /posts/ 列表页。
-// 传入内容集合条目与展示序号，内部只做展示格式化。
+// 使用处：首页「最新文章」与 /posts/ 列表页（中英两站共用）。
+// 传入内容集合条目、展示序号与站点语言，内部只做展示格式化：
+//   - 链接经 localePath 生成（en 站自动带 /en 前缀）；
+//   - 展示稿语言 ≠ 站点语言时（英文站回退显示中文稿），标题后
+//     追加内容语言标注〔in Chinese〕，与详情页头同一文案来源。
 // ============================================================
 
 import { formatDate, postUid } from '../lib/utils';
+import { ui, localePath, type Lang } from '../i18n/ui';
 
 interface Props {
-  /** 内容集合条目（posts collection） */
+  /** 内容集合条目（posts collection 展示稿） */
   post: any;
   /** 展示序号（从 1 起，渲染成 001 风格） */
   idx: number;
+  /** 站点语言（决定链接前缀与文案字典列） */
+  lang: Lang;
 }
 
-const { post, idx } = Astro.props;
+const { post, idx, lang } = Astro.props;
+const t = ui[lang];
 const { title, description, pubDate, tags, draft, pinned } = post.data;
 
 /** 标签列：无标签显示占位符，保持网格列不塌 */
 const cat = tags.length > 0 ? tags.join(' / ') : '—';
 /** 草稿标记：列表里用朱砂小旗提示（draft 在查询层通常已过滤，防御性展示） */
-const flag = draft ? ' [草稿]' : '';
+const flag = draft ? t.row.draftFlag : '';
+/**
+ * 语言回退标注：英文站无译文文章显示中文稿，需要明示读者
+ * 「下面是中文」——避免点进去才发现看不懂的挫败感。
+ */
+const fallback = post.data.lang !== lang ? t.detail.fallback : '';
+/** 行链接：短链 uid + 语言前缀（全站唯一取值口径，见 lib/posts.ts） */
+const href = localePath(lang, `/posts/${postUid(post)}/`);
 ---
 
 <li>
-  <a class="row" href={`/posts/${postUid(post)}/`}>
+  <a class="row" href={href}>
     {/* 置顶表达（2026-09-11 第三版）：不走标题行（徽标压巨字太抢戏），
         也不走日期区（朱砂字夹在分类与日期之间像第三个分类），
         收敛为行首档案号变色——置顶行的 001 转朱砂，
@@ -33,9 +47,9 @@ const flag = draft ? ' [草稿]' : '';
     <span class:list={['row__idx', pinned && 'row__idx--pin']}>{String(idx).padStart(3, '0')}</span>
     <span class="row__main">
       <span class="row__title">
-        {/* 标题行只放标题（+草稿旗）：置顶标记两版试错后收敛到行首档案号，
-            见上方 row__idx 处注释 */}
-        {title}{flag}
+        {/* 标题行只放标题（+草稿旗/语言标注）：置顶标记两版试错后
+            收敛到行首档案号，见上方 row__idx 处注释 */}
+        {title}{flag}{fallback && <span class="row__fallback">{fallback}</span>}
       </span>
       <span class="row__sub">{description}</span>
     </span>

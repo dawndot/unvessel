@@ -1,0 +1,119 @@
+---
+// ============================================================
+// PostsListView.astro — 文章列表页共享模板（中英两站渲染同一结构）
+// ============================================================
+// 中文壳 pages/posts/[...page].astro 与英文壳 pages/en/posts/[...page].astro
+// 各自 getStaticPaths + paginate（数据源都是 lib/posts.getDisplayPosts，
+// 双语配对口径一致），本模板只负责渲染：页头 / 当前页列表 / 数字页码。
+// 分页链接说明：
+//   - page.url.prev / next 由壳层 paginate 生成，已带语言前缀，只补尾斜杠；
+//   - 数字页码手工拼路径，经 localePath 保证两种语言下都指向本语言站。
+// ============================================================
+
+import Base from '../layouts/Base.astro';
+import PostRow from '../components/PostRow.astro';
+import { getChronoNos, type PostEntry } from '../lib/posts';
+import { postUid } from '../lib/utils';
+import { ui, localePath, type Lang } from '../i18n/ui';
+import type { Page } from 'astro';
+
+interface Props {
+  /** 站点语言（壳里写死：中文壳 'zh' / 英文壳 'en'）；迁移过渡期缺省 zh */
+  lang?: Lang;
+  /** paginate() 的分页对象（data = 当前页文章切片） */
+  page: Page<PostEntry>;
+}
+
+const { lang = 'zh', page } = Astro.props;
+const t = ui[lang];
+
+// 档案号：全量纯时间序编号（uid 键，中英同文同号，跨页连续不重启）；
+// 置顶只影响显示位次、不改变编号（见 lib/posts.ts 的排序口径）
+const chronoNo = await getChronoNos();
+const count = String(page.total).padStart(3, '0');
+
+// 页码数组 [1..lastPage]，数字页码直接 map
+const pages = Array.from({ length: page.lastPage }, (_, i) => i + 1);
+
+// 标题：第 1 页用短标题；第 n 页走 titlePage 模板（{n} 占位替换）
+const title =
+  page.currentPage > 1
+    ? t.list.titlePage.replace('{n}', String(page.currentPage))
+    : t.list.title;
+
+/** paginate 生成的相邻页链接统一补尾斜杠，与全站 /posts/<uid>/ 规范一致 */
+const withSlash = (u?: string) => (u ? u.replace(/\/?$/, '/') : u);
+---
+
+<Base lang={lang} title={title} description={t.list.desc}>
+  <!-- ===== 页头 ===== -->
+  <header class="page-head">
+    <p class="page-head__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      {t.list.kicker}
+    </p>
+    <!-- 巨字标题：zh 两字「文章」，en 单词「POSTS」（giant 数组驱动） -->
+    <h1 class="page-head__title" aria-label={t.list.giantAria}>
+      {t.list.giant.map((ch, i) => (
+        <span
+          class:list={[{ hollow: i === Math.min(1, t.list.giant.length - 1) }]}
+          data-rv
+          style={`--d:${0.08 + 0.1 * i}s`}
+        >
+          {ch}
+        </span>
+      ))}
+    </h1>
+    <p class="page-head__meta" data-rv style="--d:.28s">
+      <span>{count} FILES</span>
+      {page.currentPage > 1 && <span>PAGE {String(page.currentPage).padStart(2, '0')}</span>}
+      <span>{t.list.metaSub}</span>
+    </p>
+  </header>
+
+  <!-- ===== 列表（当前页切片，编号仍取全量档案号） ===== -->
+  <section class="works" aria-label={t.list.giantAria} style="padding-top: 0;">
+    <ol class="works__list">
+      {page.data.map((post) => (
+        <PostRow post={post} idx={chronoNo.get(postUid(post)) ?? 1} lang={lang} />
+      ))}
+    </ol>
+
+    <!--
+      ===== 页码组件（仅文章多到超出一页时出现） =====
+      结构：← 前翻 · 数字页码（当前页朱砂）· 后翻 →
+      与 .row 同一 mono 细字语言；单页时整块不渲染。
+    -->
+    {page.lastPage > 1 && (
+      <nav class="pager" aria-label={t.list.pagerAria}>
+        {/* 前翻：无上一页时降级为置灰箭头占位，保持两端对齐不跳动 */}
+        {page.url.prev ? (
+          <a class="pager__step" href={withSlash(page.url.prev)} aria-label={t.list.prevAria}>←</a>
+        ) : (
+          <span class="pager__step is-off" aria-hidden="true">←</span>
+        )}
+
+        <ul class="pager__pages">
+          {pages.map((n) => (
+            <li>
+              {n === page.currentPage ? (
+                <span class="pager__no is-current" aria-current="page">{String(n).padStart(2, '0')}</span>
+              ) : (
+                <a class="pager__no" href={localePath(lang, n === 1 ? '/posts/' : `/posts/${n}/`)}>
+                  {String(n).padStart(2, '0')}
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {/* 后翻：无下一页时同样置灰占位 */}
+        {page.url.next ? (
+          <a class="pager__step" href={withSlash(page.url.next)} aria-label={t.list.nextAria}>→</a>
+        ) : (
+          <span class="pager__step is-off" aria-hidden="true">→</span>
+        )}
+      </nav>
+    )}
+  </section>
+</Base>

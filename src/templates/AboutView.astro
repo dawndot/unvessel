@@ -1,0 +1,138 @@
+---
+// ============================================================
+// AboutView.astro — 关于页共享模板（中英两站渲染同一结构）
+// ============================================================
+// 定位：纯「关于」页（宣言只住首页）。结构：页头「关于」
+// → 站点自介（这是哪 / 有什么 / 怎么建的）→ 站点统计面板（纯静态实算）
+// → 联络。
+// 注：写作热力图归 /logs/ 专属（2026-09-10 用户决策，与该页不重复）。
+// 统计数字全部由内容集合构建期计算（不硬编码）：文章/日志/作品/照片/字数/建站天数。
+// 照片数走 scanPhotos()（构建期扫描 public/photos/，与相册页同源）。
+// 自介正文（intro1-3）是文案，走字典列——intro1 是 HTML 片段（含 <strong>
+// 与 {name}/{zhName} 占位），以 set:html 渲染；站内链接经 localePath。
+// ============================================================
+
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { PROFILE, daysSinceFounded } from '../data/profile';
+import { WORKS } from '../data/works';
+import { scanPhotos } from '../data/photos';
+import { countWords } from '../lib/activity';
+import { ui, localePath, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言（壳里写死） */
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui[lang];
+
+// —— 统计数据源（与页面展示同口径：非草稿） ——
+const posts = await getCollection('posts', ({ data }) => !data.draft);
+const logs = await getCollection('logs', ({ data }) => !data.draft);
+const photoCount = scanPhotos().length;
+
+// 字数统计：正文合计（CJK 逐字 + 拉丁按词，与文章阅读时长同源口径）
+const totalWords = posts.reduce((sum, p) => sum + countWords(p.body ?? ''), 0);
+
+/** 统计卡片（数字构建期实算，随内容增长自动变化；标签走字典列） */
+const stats = [
+  { key: 'posts', value: String(posts.length).padStart(2, '0') },
+  { key: 'logs', value: String(logs.length).padStart(2, '0') },
+  { key: 'works', value: String(WORKS.length).padStart(2, '0') },
+  { key: 'photos', value: String(photoCount).padStart(2, '0') },
+  { key: 'words', value: String(totalWords) },
+  { key: 'days', value: `${daysSinceFounded()}${t.about.daysUnit}` },
+];
+
+/** intro1：HTML 片段 + 姓名占位替换（zh 用中文名，en 直接用拼音名） */
+const intro1 = t.about.intro1
+  .replace('{zhName}', PROFILE.zhName)
+  .replace('{name}', PROFILE.name);
+---
+
+<Base lang={lang} title={t.about.title} description={t.about.desc}>
+  <!-- ===== 页头 ===== -->
+  <header class="page-head">
+    <p class="page-head__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      {t.about.kicker}
+    </p>
+    <h1 class="page-head__title" aria-label={t.about.giantAria}>
+      {t.about.giant.map((ch, i) => (
+        <span
+          class:list={[{ hollow: i === Math.min(1, t.about.giant.length - 1) }]}
+          data-rv
+          style={`--d:${0.08 + 0.1 * i}s`}
+        >
+          {ch}
+        </span>
+      ))}
+    </h1>
+    <p class="page-head__meta" data-rv style="--d:.28s">
+      <span>{t.brand.slogan}</span>
+      <span>UNVESSEL / {PROFILE.zhName}</span>
+    </p>
+  </header>
+
+  <!-- ===== 站点自介：这是哪 / 有什么 / 怎么建的 ===== -->
+  <section class="prose-wrap" style="padding-top: 0;">
+    <div class="prose prose--wide">
+      {/* intro1 是 HTML 片段（姓名加粗 + 出处引文），字典列经占位替换后 set:html */}
+      <p set:html={intro1} />
+      <p>
+        {t.about.intro2Prefix}
+        <a href={localePath(lang, '/posts/')}>{t.nav.posts}</a>、
+        <a href={localePath(lang, '/works/')}>{t.nav.works}</a>、
+        <a href={localePath(lang, '/photos/')}>{t.nav.photos}</a>、
+        <a href={localePath(lang, '/logs/')}>{t.nav.logs}</a>
+        {lang === 'zh' ? '，以及下面这些由内容自身长出的数字。' : ', and the numbers below, grown out of the content itself.'}
+      </p>
+
+      <h2>{t.about.introH2}</h2>
+      <p>{t.about.intro3}</p>
+    </div>
+  </section>
+
+  <!-- ===== 站点统计面板（访客记录：聚合统计，不追踪任何个人） ===== -->
+  <section class="about-stats" aria-labelledby="about-stats-label">
+    <p class="about-stats__label" id="about-stats-label" data-rv>
+      BY THE NUMBERS<span>{t.about.statsLabel}</span>
+    </p>
+    <dl class="stats-grid">
+      {stats.map((s) => (
+        <div class="stat" data-rv>
+          <dt class="stat__value">{s.value}</dt>
+          <dd class="stat__label">{t.about.stats[s.key]}<i>{s.key.toUpperCase()}</i></dd>
+        </div>
+      ))}
+    </dl>
+    <p class="about-stats__note">
+      {t.about.statsNote}
+    </p>
+  </section>
+
+  <!-- ===== 联络 ===== -->
+  <section class="prose-wrap">
+    <div class="prose prose--wide">
+      <h2>{t.about.contactH2}</h2>
+      <p>
+        {t.about.contactP1}<a href={`mailto:${PROFILE.email}`}>{PROFILE.email}</a>{t.about.contactP2}
+        <a href={localePath(lang, '/feed.xml')}>RSS</a>{t.about.contactP3}
+        {PROFILE.links.github && (
+          <>
+            {t.about.contactP4}
+            <a href={PROFILE.links.github} target="_blank" rel="noopener noreferrer">GitHub</a>{t.about.contactP3}
+          </>
+        )}
+      </p>
+
+      <hr />
+      {/* 落款行：复用首页宣言的句式拆分（前缀 + 朱砂强调词），两语同构 */}
+      <p style="color: var(--smoke); font-size: 0.9em;">
+        {t.home.manifestoL3Prefix}<em style="font-family: var(--font-serif); font-style: normal; font-weight: 900; color: var(--accent);">{t.home.manifestoL3Em}</em>{lang === 'zh' ? '。' : '.'}
+      </p>
+    </div>
+  </section>
+</Base>

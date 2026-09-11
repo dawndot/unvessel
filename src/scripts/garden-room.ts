@@ -1,13 +1,15 @@
 /**
  * ============================================================
- * garden-room.ts — 「不器书房」P1：房间壳体（自留地第一屏）
+ * garden-room.ts — 「不器书房」P1+P2：房间壳体与四物件（自留地第一屏）
  * ============================================================
- * 职责（P1 范围）：
+ * 职责：
  *   1. 程序化水墨纹理：Canvas 2D 现场绘制宣纸墙 / 墨石地板
  *      ——零图片资产、零网络请求，每次访问随机微不同（「每次都是新的一张纸」）；
  *   2. 平面几何房间壳体：地板 + 四墙 + 天花，墨渊色板；
- *   3. 固定全景机位：入房运镜（easeInOutCubic）+ 呼吸感微动；
- *   4. 降级链路：无 WebGL → canvas 不出现，stage 的 CSS 宣纸底自然露出；
+ *   3. 机位系统：REST 全景（入房运镜 + 呼吸微动）+ CLOSEUPS 推近特写
+ *      （goto/back：easeInOutCubic 一条曲线走完 push，见状态机段）；
+ *   4. 降级链路：无 WebGL → canvas 不出现，stage 的 CSS 宣纸底自然露出
+ *      （cue 保持深墨）；WebGL 可用 → stage 加 .is-live，cue 换骨白；
  *      prefers-reduced-motion → 跳过所有运镜，只渲染一帧。
  *
  * 设计决策（为何这样做）：
@@ -25,15 +27,19 @@
  *     WebGL 失败 = canvas 不出现，宣纸底与题字构成静态画面，
  *     下方 2D 内容永远可达（无 JS 同理）。
  *
- * 后续扩展（P2+ 刻意留好的缝）：
- *   - 物件推近：往 scene 塞书桌/书架/留声机/放映机 Mesh，
- *     机位推近动画复用本文件的 easeInOutCubic 与 REST/FROM 结构；
- *   - 内容管线：北墙便签墙 = 再造一张 CanvasTexture（数据来自 ideas 集合），
- *     书架书脊贴条 = 细长 BoxGeometry + 程序化条状纹理。
+ * P2 已进场（物件工厂见 garden-props.ts）：
+ *   - 四物件全程序化几何 + 墨渊材质（模型路线论证见 props 头注释）；
+ *   - 推近机位 goto/back：easeInOutCubic 一条曲线走完 push 动画，
+ *     P4 的 raycaster 点击将消费同一对入口与 CLOSEUPS 表；
+ * 后续扩展（P3/P4 留好的缝）：
+ *   - 内容管线：便签墙 CanvasTexture 由 ideas 集合驱动重绘（P3），
+ *     书脊换真数据（P3），放映机幕布 = HTML overlay（P4）；
+ *   - 交互闭环：点击物件 → goto(id) → overlay 浮现 → back()（P4）。
  * ============================================================
  */
 
 import * as THREE from 'three';
+import { buildProps, CLOSEUPS, type PropId } from './garden-props';
 
 /* ---------- 墨渊色板（与 global.css 令牌同源，改动需两边同步） ---------- */
 const PAL = {
@@ -63,6 +69,7 @@ const FROM = {
 const FOV = 42;          // 常驻垂直视场角：全景但无广角畸变
 const FOV_PORTRAIT = 55; // 竖屏（手机）拉大视场，保证北墙仍能入画
 const INTRO_MS = 1800;   // 入房运镜时长
+const PUSH_MS = 1400;    // 推近/返回运镜时长：距离比入房短，稍快一点保持节奏
 
 /* ---------- 小工具 ---------- */
 
@@ -373,6 +380,11 @@ export function mountGardenRoom(): void {
 
   scene.add(room);
 
+  // —— P2 四物件进场：书架 / 便签墙 / 书桌 / 留声机 / 放映机 ——
+  // 全程序化几何 + 墨渊材质（模型路线论证见 garden-props.ts 头注释），
+  // 资源登记进同一份 disposables，teardown 时一起回收。
+  scene.add(buildProps(disposables, maxAniso));
+
   // —— 尺寸跟随：以宿主元素实际大小为准（100dvh 布局），RO 监听变化 ——
   const sizeTo = () => {
     const w = host.clientWidth;
@@ -385,28 +397,81 @@ export function mountGardenRoom(): void {
   };
   sizeTo();
 
-  // —— 运镜状态机：intro（入房）→ breath（呼吸微动）——
-  // prefers-reduced-motion：跳过全部运镜，常驻机位只渲染一帧。
+  // —— 运镜状态机：intro（入房）→ breath（呼吸）⇄ push（推近/返回）→ closeup（特写呼吸）——
+  // goto/back 是 P2 的 DEV 调试入口（window.__gardenRoom），
+  // P4 的 raycaster 点击将消费同一对入口与 CLOSEUPS 表（接口先于交互定型）。
+  // prefers-reduced-motion：跳过全部运镜与推近动画，机位直接切换只渲染一帧。
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const lookAt = new THREE.Vector3(); // intro 插值的临时视线点
-  let mode: 'intro' | 'breath' = 'intro';
+  const lookAt = new THREE.Vector3(); // 插值 / 呼吸共用的临时视线点
+  let mode: 'intro' | 'breath' | 'push' | 'closeup' = 'intro';
   let t0 = 0; // 首帧时间戳（requestAnimationFrame 传入的是绝对时间）
   let raf = 0;
 
-  /** 呼吸：三个不同周期的正弦叠加，振幅厘米级——「有人住」而不是「摄像机」 */
-  const breathe = (now: number) => {
+  // push 动画的起止与去向：from = 触发瞬间的机位快照（从真实位置出发，避免跳变），
+  // after = 动画完成后进入的模式（推近 → closeup，返回 → breath）。
+  const pushFrom = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  const pushTarget = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  let pushT0 = 0;
+  let afterPush: 'breath' | 'closeup' = 'breath';
+  // 特写呼吸的基准机位：goto 的落点被记住，closeup 呼吸与 back() 都以它为锚
+  const closeupBase = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+
+  /** 呼吸：三个不同周期的正弦叠加，围绕基准机位厘米级微动——「有人住」而不是「摄像机」。
+   *  REST 与特写机位共用同一套波形，只差幅度系数。
+   *  @param amp 幅度系数：REST 全景用 1；特写离墙近、同幅度视觉摆动更大，用 0.5 */
+  const breathe = (now: number, basePos: THREE.Vector3, baseLook: THREE.Vector3, amp: number) => {
     const s = now / 1000;
     camera.position.set(
-      REST.pos.x + Math.sin(s * 0.31) * 0.045,      // ~20s 一摆（横向）
-      REST.pos.y + Math.sin(s * 0.53 + 1.3) * 0.02, // ~12s 一浮（纵向）
-      REST.pos.z
+      basePos.x + Math.sin(s * 0.31) * 0.045 * amp,      // ~20s 一摆（横向）
+      basePos.y + Math.sin(s * 0.53 + 1.3) * 0.02 * amp, // ~12s 一浮（纵向）
+      basePos.z
     );
     lookAt.set(
-      REST.look.x,
-      REST.look.y + Math.sin(s * 0.41 + 0.5) * 0.012, // 视线也轻轻漂
-      REST.look.z
+      baseLook.x,
+      baseLook.y + Math.sin(s * 0.41 + 0.5) * 0.012 * amp, // 视线也轻轻漂
+      baseLook.z
     );
     camera.lookAt(lookAt);
+  };
+
+  /** 推近/返回共用入口：快照当前机位为起点 → 设定终点与去向 → 进入 push 态 */
+  const startPush = (to: { pos: THREE.Vector3; look: THREE.Vector3 }, after: 'breath' | 'closeup') => {
+    pushFrom.pos.copy(camera.position);
+    pushFrom.look.copy(lookAt);
+    pushTarget.pos.copy(to.pos);
+    pushTarget.look.copy(to.look);
+    pushT0 = performance.now(); // 触发发生在事件回调里，不在帧回调内，取当下时钟
+    afterPush = after;
+    mode = 'push';
+  };
+
+  /** 推近到物件特写机位（CLOSEUPS 表见 garden-props.ts）；未知 id 静默忽略 */
+  const goto = (id: PropId) => {
+    const cu = CLOSEUPS[id];
+    if (!cu) return;
+    closeupBase.pos.copy(cu.pos);
+    closeupBase.look.copy(cu.look);
+    if (reduced) {
+      // reduced：无 RAF 在跑，跳过动画直接切机位，补渲染一帧
+      camera.position.copy(cu.pos);
+      lookAt.copy(cu.look);
+      camera.lookAt(lookAt);
+      renderer.render(scene, camera);
+      return;
+    }
+    startPush(cu, 'closeup');
+  };
+
+  /** 返回常驻全景机位（REST）；非特写态调用 = 从当前位置平滑归位，无害 */
+  const back = () => {
+    if (reduced) {
+      camera.position.copy(REST.pos);
+      lookAt.copy(REST.look);
+      camera.lookAt(lookAt);
+      renderer.render(scene, camera);
+      return;
+    }
+    startPush(REST, 'breath');
   };
 
   const frame = (now: number) => {
@@ -418,8 +483,18 @@ export function mountGardenRoom(): void {
       lookAt.lerpVectors(FROM.look, REST.look, e);
       camera.lookAt(lookAt);
       if (k >= 1) mode = 'breath';
+    } else if (mode === 'push') {
+      // 推近/返回：easeInOutCubic 一条曲线走完（与入房同曲线，全站唯一运镜手感）
+      const k = Math.min((now - pushT0) / PUSH_MS, 1);
+      const e = easeInOutCubic(k);
+      camera.position.lerpVectors(pushFrom.pos, pushTarget.pos, e);
+      lookAt.lerpVectors(pushFrom.look, pushTarget.look, e);
+      camera.lookAt(lookAt);
+      if (k >= 1) mode = afterPush;
+    } else if (mode === 'closeup') {
+      breathe(now, closeupBase.pos, closeupBase.look, 0.5);
     } else {
-      breathe(now);
+      breathe(now, REST.pos, REST.look, 1);
     }
     renderer.render(scene, camera);
     raf = requestAnimationFrame(frame);
@@ -432,6 +507,12 @@ export function mountGardenRoom(): void {
   } else {
     raf = requestAnimationFrame(frame);
   }
+
+  // —— DEV 调试句柄：控制台 window.__gardenRoom.goto('gramophone') 逐机位推近验收；
+  // P4 换成 raycaster 点击消费同一对入口。teardown 时随场景一起注销。 ——
+  type GardenRoomHandle = { goto: (id: PropId) => void; back: () => void };
+  const handle: GardenRoomHandle = { goto, back };
+  (window as unknown as { __gardenRoom?: GardenRoomHandle }).__gardenRoom = handle;
 
   // —— Resize：尺寸变化时重设画布；静态模式下补渲染一帧 ——
   const ro = new ResizeObserver(() => {
@@ -447,6 +528,8 @@ export function mountGardenRoom(): void {
     disposables.forEach((d) => d.dispose());
     renderer.dispose();
     renderer.domElement.remove();
+    // DEV 句柄随场景注销：防换页后悬挂引用已拆除的 renderer/scene
+    delete (window as unknown as { __gardenRoom?: GardenRoomHandle }).__gardenRoom;
     stage?.classList.remove('is-live'); // 状态类随场景一起拆，重挂时干净
     teardown = null;
   };

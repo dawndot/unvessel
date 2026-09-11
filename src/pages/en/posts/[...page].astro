@@ -1,0 +1,24 @@
+---
+// ============================================================
+// en/posts/[...page].astro — 文章列表页（英文壳）
+// ============================================================
+// 英文站列表路由：/en/posts/（第 1 页）、/en/posts/2/…（后续页）。
+// 数据源 = lib/posts.getDisplayPosts('en')：有英文译文的条目显示译稿，
+// 无译文的回退中文稿（PostRow 自动落〔in Chinese〕标注）；
+// 渲染实现全在 templates/PostsListView.astro。
+// ============================================================
+
+import PostsListView from '../../../templates/PostsListView.astro';
+import { getDisplayPosts } from '../../../lib/posts';
+
+export async function getStaticPaths({ paginate }) {
+  // 英文展示列表（与中文站同一配对与排序口径，仅展示稿列不同）；
+  // 每页 10 篇，与中文站一致。
+  const posts = await getDisplayPosts('en');
+  return paginate(posts, { pageSize: 10 });
+}
+
+const { page } = Astro.props;
+---
+
+<PostsListView lang="en" page={page} />

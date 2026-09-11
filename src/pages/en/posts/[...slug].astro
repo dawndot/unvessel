@@ -1,0 +1,29 @@
+---
+// ============================================================
+// en/posts/[...slug].astro — 文章详情页（英文壳）
+// ============================================================
+// 路径：/en/posts/<短链 uid>/——uid 与中文站完全一致（同一篇稿子
+// 在两种语言下共享同一个短链），语言切换按钮因此能在文章间直达。
+// 有英文译文的条目渲染译稿；无译文的条目同样生成页面（回退渲染
+// 中文稿），文章头自动落〔in Chinese〕标注——保证两种语言的
+// URL 空间对称，hreflang 互指不落空。
+// 渲染实现全在 templates/PostDetailView.astro。
+// ============================================================
+
+import PostDetailView from '../../../templates/PostDetailView.astro';
+import { getDisplayPosts } from '../../../lib/posts';
+import { postUid } from '../../../lib/utils';
+
+export async function getStaticPaths() {
+  // 英文展示列表：译稿优先、无译文回退中文稿（草稿整对剔除）
+  const posts = await getDisplayPosts('en');
+  return posts.map((post) => ({
+    params: { slug: postUid(post) },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+---
+
+<PostDetailView lang="en" post={post} />

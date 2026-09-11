@@ -14,15 +14,36 @@
      13 页面头 14 文章正文
    ============================================================ */
 
-/* ---------- 01 令牌 ---------- */
+/* ---------- 01 令牌（明暗双主题） ----------
+   主题机制（2026-09-11 明暗切换改造）：
+   - :root 即暗色「渊墨」主题（历史默认，不另设 data-theme='dark'，避免
+     FOUC 前 CSS 无值可取）；
+   - html[data-theme='light'] 整组覆盖为「宣纸墨字」主题；
+   - Base.astro <head> 内联脚本在首帧绘制前读 localStorage('unv-theme')
+     （兜底 prefers-color-scheme，再兜底暗色）写 data-theme，故切换无闪烁；
+   - 半透明派生色一律走 --void-rgb / --bone-rgb 三元组：主题反转时整站
+     半透明层（发丝线、代码底、热力图色阶…）随主色一次性换血，
+     禁止再写 rgba(242,240,234,α) / rgba(7,7,7,α) 字面量。 */
 :root {
-  /* 色板：渊底 / 骨白 / 烟灰 / 发丝线 / 朱砂。
+  /* 色板（暗）：渊底 / 骨白 / 烟灰 / 发丝线 / 朱砂。
      朱砂 #ff3b2f 全站唯一彩色——出现即强调，绝不做大面积铺色。 */
   --void: #070707;
   --bone: #f2f0ea;
   --smoke: #8a8781;
-  --line: rgba(242, 240, 234, 0.16);
+  --line: rgba(var(--bone-rgb), 0.16);
   --accent: #ff3b2f;
+
+  /* 主色 RGB 三元组：专供 color/background 里需要透明度的场合。
+     亮色主题下随主色整体反转（渊→纸、骨→墨），半透明层自动跟随 */
+  --void-rgb: 7, 7, 7;
+  --bone-rgb: 242, 240, 234;
+  --accent-rgb: 255, 59, 47;
+
+  /* 表面层令牌：收敛此前的硬编码色值，两主题各自给值 */
+  --surface: #0d0d0c;                        /* 浮层面板底（检索面板） */
+  --scrim: rgba(var(--void-rgb), 0.86);      /* 全屏遮罩（检索） */
+  --topbar-bg: rgba(var(--void-rgb), 0.55);  /* 顶栏毛玻璃底色 */
+  --scrollbar-thumb: #26251f;                /* 滚动条拇指（悬停转朱砂） */
 
   /* 字体栈：
      --font-sans  思源黑体，正文与巨字（900）；
@@ -37,6 +58,26 @@
   /* 节奏令牌：gutter 全站统一；动画用同一条弹性曲线 */
   --gutter: clamp(20px, 4vw, 64px);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------- 01b 亮色主题：宣纸墨字 ----------
+   视觉方向（用户选定「宣纸墨色」）：把暗色的「渊面浮白字」翻转为
+   「纸上落墨」——底换宣纸米白，字换浓墨，朱砂印泥色在亮底上压深一档
+   保对比度。所有半透明层经 RGB 三元组自动跟随，此处只声明实体色。 */
+html[data-theme='light'] {
+  /* 宣纸 #f4f1e8：比纯白沉一档，接近生宣的暖米色；浓墨取 #1c1a17（暖黑，
+     与暗色主题的骨白 #f2f0ea 同一色温），烟灰转淡墨 #6f6a60 */
+  --void: #f4f1e8;
+  --bone: #1c1a17;
+  --smoke: #6f6a60;
+  --accent: #d43518; /* 朱砂印泥：亮底上原 #ff3b2f 偏荧光，压深保 4.5:1 对比 */
+
+  --void-rgb: 244, 241, 232;
+  --bone-rgb: 28, 26, 23;
+  --accent-rgb: 212, 53, 24;
+
+  --surface: #faf7ee;          /* 面板比纸面再亮半档，做出「浮起」层次 */
+  --scrollbar-thumb: #d9d3c4;  /* 纸面磨痕色，悬停仍转朱砂 */
 }
 
 /* ---------- 02 重置与基础 ---------- */
@@ -79,7 +120,7 @@ body {
   background: var(--void);
 }
 ::-webkit-scrollbar-thumb {
-  background: #26251f;
+  background: var(--scrollbar-thumb);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
@@ -210,8 +251,8 @@ html.cursor-hover .cursor__ring {
   align-items: stretch;
   height: 60px;
   border-bottom: 1px solid var(--line);
-  /* 半透明渊底 + 毛玻璃：滚过巨字时文字从栏底穿过 */
-  background: rgba(7, 7, 7, 0.55);
+  /* 半透明渊底 + 毛玻璃：滚过巨字时文字从栏底穿过（亮色下为半透明纸面） */
+  background: var(--topbar-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -593,6 +634,19 @@ html.cursor-hover .cursor__ring {
   color: var(--smoke);
   transition: color 0.3s;
 }
+/* 语言回退标注（明暗双语改造 2026-09-11）：英文站无译文的文章回退显示
+   中文稿，标题后挂「〔in Chinese〕」小字明示内容语言——排版上刻意比
+   标题低两阶（mono 11px / 烟灰），像档案卡片上的铅笔注记而非告警 */
+.row__fallback {
+  margin-left: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: var(--smoke);
+  white-space: nowrap;
+  vertical-align: middle;
+}
 .row__datewrap {
   display: inline-flex;
   align-items: baseline;
@@ -818,13 +872,14 @@ html.cursor-hover .cursor__ring {
   margin-left: clamp(14px, 2.5vw, 40px);
   margin-bottom: clamp(24px, 4.5vw, 72px);
 }
-/* 沉底巨字：实心低透明水印（6% 骨白）。负 margin 让下半裁掉，像字沉入渊里 */
+/* 沉底巨字：实心低透明水印（6% 墨色）。负 margin 让下半裁掉，像字沉入渊里。
+   走 bone 三元组：亮色下自动变淡墨水印 */
 .footer__big {
   margin-bottom: -0.18em;
   font-weight: 900;
   font-size: 26vw;
   line-height: 0.82;
-  color: rgba(242, 240, 234, 0.06);
+  color: rgba(var(--bone-rgb), 0.06);
   user-select: none;
   pointer-events: none;
 }
@@ -965,6 +1020,15 @@ body.is-live .hero__title .gi {
   .topbar__brand {
     padding: 0 14px;
   }
+  /* 明暗双语改造（2026-09-11）：主题/语言切换器同检索待遇一并收起——
+     上账余量仅 14px，theme(44px) 与 lang(约 30px) 都塞不下；
+     移动端兜底：主题由 prefers-color-scheme 跟随系统（Base.astro 内联
+     脚本同口径），语言由内容语言与系统偏好自然对应。
+     与检索同一纪律：未来若要移动端入口，做菜单方案而非断点里硬挤 */
+  .topbar__end .topbar__theme,
+  .topbar__end .topbar__lang {
+    display: none;
+  }
 }
 @media (max-width: 420px) {
   /* 勘误（2026-09-10 截图取证）：本档旧注释写「品牌只剩器皿图形 + 不器」，
@@ -1090,6 +1154,11 @@ body.is-live .hero__title .gi {
 }
 .post-head__meta .accent {
   color: var(--accent);
+}
+/* 详情页头的内容语言标注：与 row__fallback 同一文案来源、同一视觉等级
+   （mono 11px 烟灰），但此处 meta 行本身就是 mono 11px，只补前缀间距 */
+.post-head__fallback {
+  white-space: nowrap;
 }
 .post-head__title {
   font-weight: 900;
@@ -1327,11 +1396,11 @@ body.is-live .hero__title .gi {
   margin-top: 0.4em;
 }
 
-/* 行内代码与代码块：等宽字 + 暗块 + 1px 发丝线框 */
+/* 行内代码与代码块：等宽字 + 墨色淡底 + 1px 发丝线框（亮色=纸面淡墨块） */
 .prose code {
   font-family: var(--font-mono);
   font-size: 0.88em;
-  background: rgba(242, 240, 234, 0.07);
+  background: rgba(var(--bone-rgb), 0.07);
   border: 1px solid var(--line);
   padding: 0.1em 0.4em;
 }
@@ -1435,7 +1504,7 @@ body.is-live .hero__title .gi {
   transition: border-color 0.3s;
 }
 .post-foot__card:hover {
-  border-color: rgba(242, 240, 234, 0.34);
+  border-color: rgba(var(--bone-rgb), 0.34);
 }
 /* 只有「下一篇」落单时（全站最新一篇文章）推到右列，保住左右语义位 */
 .post-foot__card--next:only-child {
@@ -1528,13 +1597,80 @@ body.is-live .hero__title .gi {
 .topbar__search:hover svg {
   color: var(--bone);
 }
-/* 键盘聚焦：细线框替代浏览器默认 focus ring */
+/* 键盘聚焦：细线框替代浏览器默认 focus ring（朱砂三元组随主题换印泥色） */
 .topbar__search:focus-visible {
-  outline: 1px solid rgba(255, 59, 47, 0.55);
+  outline: 1px solid rgba(var(--accent-rgb), 0.55);
   outline-offset: -6px;
 }
 .topbar__search:focus:not(:focus-visible) {
   outline: none; /* 鼠标点击的瞬时 focus 不画框 */
+}
+
+/* 主题切换按钮（明暗双主题改造 2026-09-11）：与检索按钮同一图标语言——
+   44px 透明触达区、1.5px 描边 svg 以 currentColor 上色，烟灰常驻悬停转骨白。
+   双图标显隐由 CSS 按 html[data-theme] 裁定（SSR 不知最终主题，
+   JS 只需在换肤时改 data-theme，图标自动换位）：
+     - 暗色（默认，无 data-theme）：显示太阳 =「当前暗，点击转亮」；
+     - 亮色：显示月亮 =「当前亮，点击转暗」。 */
+.topbar__theme {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 0 0 clamp(2px, 0.5vw, 8px);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex: none;
+}
+.topbar__theme svg {
+  display: block;
+  color: var(--smoke);
+  transition: color 0.25s;
+}
+.topbar__theme:hover svg {
+  color: var(--bone);
+}
+.topbar__theme:focus-visible {
+  outline: 1px solid rgba(var(--accent-rgb), 0.55);
+  outline-offset: -6px;
+}
+.topbar__theme:focus:not(:focus-visible) {
+  outline: none;
+}
+/* 图标换位：默认（暗）亮太阳藏月亮；亮色反转 */
+.topbar__theme-moon {
+  display: none;
+}
+html[data-theme='light'] .topbar__theme-sun {
+  display: none;
+}
+html[data-theme='light'] .topbar__theme-moon {
+  display: block;
+}
+
+/* 语言切换链接：顶栏唯一的文字功能件，显示「目标语言」（中文站显 EN /
+   英文站显 中）。mono 小字与导航同阶（12px / 0.14em），悬停转朱砂与
+   导航悬停同一动效语言；纯 <a> 无 JS 可用（no-js 不藏，与检索/主题不同） */
+.topbar__lang {
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(8px, 1vw, 16px);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--smoke);
+  transition: color 0.25s;
+}
+.topbar__lang:hover {
+  color: var(--accent);
+}
+.topbar__lang:focus-visible {
+  outline: 1px solid rgba(var(--accent-rgb), 0.55);
+  outline-offset: -6px;
 }
 
 /* 浮层容器：全屏固定层（低于噪点/光标，高于一切内容层） */
@@ -1547,23 +1683,23 @@ body.is-live .hero__title .gi {
   display: none;
 }
 
-/* 遮罩：渊底暗化 + 毛玻璃；点击即关 */
+/* 遮罩：渊面暗化 + 毛玻璃（亮色=纸面蒙纱）；点击即关 */
 .search__scrim {
   position: absolute;
   inset: 0;
-  background: rgba(7, 7, 7, 0.86);
+  background: var(--scrim);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   opacity: 0;
   transition: opacity 0.15s ease;
 }
 
-/* 面板：黑底直角 + 发丝线框；入场自上方 10px 沉入（像从渊面浮出） */
+/* 面板：面板底直角 + 发丝线框；入场自上方 10px 沉入（像从渊面浮出） */
 .search__panel {
   position: relative;
   width: min(680px, calc(100vw - 40px));
   margin: 16vh auto 0;
-  background: #0d0d0c;
+  background: var(--surface);
   border: 1px solid var(--line);
   opacity: 0;
   transform: translateY(-10px);
@@ -1647,7 +1783,7 @@ body.is-live .hero__title .gi {
 }
 .search__result.is-active a,
 .search__result a:hover {
-  background: rgba(242, 240, 234, 0.04);
+  background: rgba(var(--bone-rgb), 0.04);
   border-left-color: var(--accent);
 }
 .search__result-title {
@@ -1744,7 +1880,7 @@ body.is-live .hero__title .gi {
 
 /* 未点亮指引面板：与相册「胶卷未装」同语言的虚线框真实状态 */
 .comments__pending {
-  border: 1px dashed rgba(242, 240, 234, 0.28);
+  border: 1px dashed rgba(var(--bone-rgb), 0.28);
   padding: 28px 24px;
   color: var(--smoke);
   font-size: 14px;
@@ -1777,7 +1913,7 @@ body.is-live .hero__title .gi {
   font-family: var(--font-mono);
   font-size: 0.92em;
   color: var(--bone);
-  background: rgba(242, 240, 234, 0.08);
+  background: rgba(var(--bone-rgb), 0.08);
   padding: 2px 7px;
   border: 1px solid var(--line);
 }
@@ -1887,7 +2023,7 @@ body.is-live .hero__title .gi {
   transition: border-color 0.3s;
 }
 .featured__item:hover {
-  border-color: rgba(242, 240, 234, 0.34);
+  border-color: rgba(var(--bone-rgb), 0.34);
 }
 /* 左缘细线：与 .row 同一语言，悬停时从顶部生长 */
 .featured__item::before {
@@ -1929,7 +2065,9 @@ body.is-live .hero__title .gi {
   transform: scale(1.035);
   filter: grayscale(0.1) brightness(0.68);
 }
-/* 图上再压一层纵向渐变：底部近实黑，标题永远可读 */
+/* 图上再压一层纵向渐变：底部近实黑，标题永远可读。
+   主题无关特例（明暗双主题改造时裁定）：压的是照片不是页面，
+   暗渐变压字在两主题下同样成立，故保留字面量、不走 --void-rgb */
 .featured__media::after {
   content: '';
   position: absolute;
@@ -2000,7 +2138,7 @@ body.is-live .hero__title .gi {
   transition: border-color 0.3s;
 }
 .work-card:hover {
-  border-color: rgba(242, 240, 234, 0.4);
+  border-color: rgba(var(--bone-rgb), 0.4);
 }
 /* 可点卡片：朱砂左缘线生长（链接覆盖整卡） */
 .work-card__link {
@@ -2102,7 +2240,7 @@ a.work-card__link:hover::before {
 
 .photos-empty {
   margin: 0 var(--gutter) clamp(80px, 14vh, 160px);
-  border: 1px dashed rgba(242, 240, 234, 0.28);
+  border: 1px dashed rgba(var(--bone-rgb), 0.28);
   padding: clamp(48px, 10vh, 96px) clamp(24px, 6vw, 80px);
   text-align: left;
 }
@@ -2134,7 +2272,7 @@ a.work-card__link:hover::before {
   font-family: var(--font-mono);
   font-size: 0.92em;
   color: var(--bone);
-  background: rgba(242, 240, 234, 0.08);
+  background: rgba(var(--bone-rgb), 0.08);
   padding: 2px 7px;
   border: 1px solid var(--line);
 }
@@ -2156,7 +2294,7 @@ a.work-card__link:hover::before {
   border: 1px solid var(--line);
   overflow: hidden;
   aspect-ratio: 4 / 3;
-  background: rgba(242, 240, 234, 0.03);
+  background: rgba(var(--bone-rgb), 0.03);
 }
 .photo__frame img {
   width: 100%;
@@ -2283,18 +2421,19 @@ a.work-card__link:hover::before {
   gap: 3px;
   flex: 1;
 }
-/* 格子：直角小方块（全站无圆角纪律）；色阶 = 骨白四档 + 朱砂峰值 */
+/* 格子：直角小方块（全站无圆角纪律）；色阶 = 墨色四档 + 朱砂峰值。
+   走 bone 三元组：亮色下色阶自动换成「纸上墨点由浅入深」 */
 .heatmap__cell {
   display: block;
   width: 100%;
   aspect-ratio: 1;
   min-width: 9px;
   min-height: 9px;
-  background: rgba(242, 240, 234, 0.07);
+  background: rgba(var(--bone-rgb), 0.07);
 }
-.heatmap__cell.l1 { background: rgba(242, 240, 234, 0.28); }
-.heatmap__cell.l2 { background: rgba(242, 240, 234, 0.52); }
-.heatmap__cell.l3 { background: rgba(242, 240, 234, 0.78); }
+.heatmap__cell.l1 { background: rgba(var(--bone-rgb), 0.28); }
+.heatmap__cell.l2 { background: rgba(var(--bone-rgb), 0.52); }
+.heatmap__cell.l3 { background: rgba(var(--bone-rgb), 0.78); }
 .heatmap__cell.l4 { background: var(--accent); }
 .heatmap__cell--future {
   background: transparent;
@@ -2810,7 +2949,10 @@ a.work-card__link:hover::before {
    分层不替换：#garden-stage 永远有 CSS 宣纸底——无 JS / WebGL 失败时
    它就是静态画面本体；garden-room.ts 挂载成功后 canvas 覆盖其上。
    topbar 是 fixed 60px 半透明渊底毛玻璃，舞台从文档 y=0 起铺，
-   让栏底直接压在纸面上（3D 构图已把重心放在 60px 之下）。 */
+   让栏底直接压在纸面上（3D 构图已把重心放在 60px 之下）。
+   主题无关特例（明暗双主题改造时裁定）：舞台本体是「一张宣纸」——
+   纸上墨字是内容隐喻，暗色主题下也是亮纸（书房里摊开的一页），
+   故底色与墨字保留字面量、不随 data-theme 反转。 */
 #garden-stage {
   position: relative;
   height: 100dvh;
@@ -2828,10 +2970,10 @@ a.work-card__link:hover::before {
 }
 
 /* 3D 接管态：场景挂载成功后由 garden-room.ts 加 is-live。
-   地板是墨渊黑，「向下」引导的深墨会隐形——切换为骨白半透明。
-   无 JS / WebGL 降级时不加此类，cue 保持深墨在宣纸底上可见。 */
+   地板颜色随主题（暗=墨渊黑 / 亮=浅宣底，见 ink/garden uniform 配色），
+   「向下」引导的深墨在暗色地板上会隐形——切换为 bone 半透明跟随主题 */
 #garden-stage.is-live .stage-cue {
-  color: rgba(242, 240, 234, 0.66);
+  color: rgba(var(--bone-rgb), 0.66);
 }
 
 /* canvas 宿主：铺满舞台；canvas 本体尺寸由 garden-room.ts 按宿主实测控制 */

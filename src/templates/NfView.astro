@@ -1,0 +1,49 @@
+---
+// ============================================================
+// NfView.astro — 404 页共享模板（中英两站渲染同一结构）
+// ============================================================
+// Astro 静态构建自动产出 dist/404.html 与 dist/en/404.html，
+// Vercel / Netlify 原生识别中文 404；/en/ 下的 404 由
+// pages/en/404.astro 壳提供（访问不存在路径时按目录就近命中）。
+// 文案扣题：器 = 被形状规定的东西；走错路 = 遇见一个「未成形的位置」。
+// ============================================================
+
+import Base from '../layouts/Base.astro';
+import { ui, localePath, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言（壳里写死） */
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui[lang];
+---
+
+<Base lang={lang} title={t.nf.title} description={t.nf.desc}>
+  <section class="nf" aria-label={t.nf.title}>
+    <i class="cross cross--tl" aria-hidden="true">+</i>
+    <i class="cross cross--tr" aria-hidden="true">+</i>
+    <i class="cross cross--bl" aria-hidden="true">+</i>
+    <i class="cross cross--br" aria-hidden="true">+</i>
+
+    <p class="nf__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      ERROR 404 — PAGE NOT FOUND
+    </p>
+
+    <!-- 巨字：40 实心 + 4 空心，呼应首页「不」实「器」虚（两语同构） -->
+    <h1 class="nf__code" aria-label="404">
+      <span data-rv style="--d:.10s">4</span><span data-rv style="--d:.20s">0</span><span class="hollow" data-rv style="--d:.30s">4</span>
+    </h1>
+
+    <p class="nf__line" data-rv style="--d:.45s">{t.nf.line}</p>
+    <p class="nf__sub" data-rv style="--d:.55s">{t.nf.sub}</p>
+
+    <nav class="nf__links" data-rv style="--d:.65s" aria-label={t.nf.navAria}>
+      <a class="nf__link nf__link--primary" href={localePath(lang, '/')}>{t.nf.back}</a>
+      <a class="nf__link" href={localePath(lang, '/posts/')}>{t.nf.posts}</a>
+      <a class="nf__link" href={localePath(lang, '/logs/')}>{t.nf.logs}</a>
+    </nav>
+  </section>
+</Base>

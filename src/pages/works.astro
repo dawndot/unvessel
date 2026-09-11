@@ -1,80 +1,11 @@
 ---
 // ============================================================
-// works.astro — 作品集
+// works.astro — 作品集（中文壳）
 // ============================================================
-// 数据源：src/data/works.ts（加作品 = 数组加一条 + build）。
-// 视觉：编号大卡 + 状态标记（live 朱砂 ◆ / building 呼吸点 / archive 烟灰），
-// 整卡可点（站内 href 或站外 url，站外新标签打开）。
+// 作品数据（src/data/works.ts）与卡片渲染在 templates/WorksView.astro。
 // ============================================================
 
-import Base from '../layouts/Base.astro';
-import { WORKS, WORK_STATUS_LABEL } from '../data/works';
-import type { Work } from '../data/works';
-
-/** 作品链接：站内走 href，站外走 url（target=_blank） */
-function linkOf(w: Work): string {
-  return w.href ?? w.url ?? '';
-}
+import WorksView from '../templates/WorksView.astro';
 ---
 
-<Base title="作品 — unvessel 不器" description="不器的作品集：写作之外，做出来的东西。">
-  <!-- ===== 页头 ===== -->
-  <header class="page-head">
-    <p class="page-head__kicker" data-rv>
-      <span class="kdot" aria-hidden="true"></span>
-      WORKS — 作品
-    </p>
-    <h1 class="page-head__title" aria-label="作品">
-      <span data-rv style="--d:.08s">作</span><span class="hollow" data-rv style="--d:.18s">品</span>
-    </h1>
-    <p class="page-head__meta" data-rv style="--d:.28s">
-      <span>做出来的，才算数</span>
-      <span>{String(WORKS.length).padStart(2, '0')} ITEMS</span>
-    </p>
-  </header>
-
-  <!-- ===== 作品列表 ===== -->
-  <section class="works-page" aria-label="作品列表">
-    {WORKS.map((w, i) => {
-      const href = linkOf(w);
-      const external = Boolean(w.url);
-      const inner = (
-        <>
-          <div class="work-card__top">
-            <span class="work-card__no">W-{String(i + 1).padStart(2, '0')}</span>
-            <span class={`work-card__status work-card__status--${w.status}`}>
-              <i aria-hidden="true">{w.status === 'live' ? '◆' : w.status === 'building' ? '◉' : '○'}</i>
-              {WORK_STATUS_LABEL[w.status]}
-            </span>
-            <span class="work-card__year">{w.year}</span>
-          </div>
-          <h2 class="work-card__title">{w.title}</h2>
-          <p class="work-card__desc">{w.desc}</p>
-          <div class="work-card__foot">
-            <span class="work-card__tags">{w.tags.join(' / ')}</span>
-            {/* 箭头只在有真实目标时出现：无链接的卡片是「纯展示」，不假装可点 */}
-            {href && <span class="work-card__arrow" aria-hidden="true">{external ? '↗' : '→'}</span>}
-          </div>
-        </>
-      );
-      return (
-        <article class={`work-card work-card--${w.status}`} data-rv>
-          {href ? (
-            <a
-              class="work-card__link"
-              href={href}
-              {...external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}
-              aria-label={`${w.title}（${WORK_STATUS_LABEL[w.status]}）`}
-            >
-              {inner}
-            </a>
-          ) : (
-            <div class="work-card__link" aria-label={`${w.title}（${WORK_STATUS_LABEL[w.status]}，暂无链接）`}>
-              {inner}
-            </div>
-          )}
-        </article>
-      );
-    })}
-  </section>
-</Base>
+<WorksView lang="zh" />

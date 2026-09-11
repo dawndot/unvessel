@@ -6,44 +6,72 @@
 // 组件只负责渲染网格。色阶 = 骨白四级深浅，level 4（高产日）为朱砂——
 // 全站「朱砂出现即强调」纪律的延续。
 // 周一起列（中文习惯）；移动端整图横向滚动，不缩成糊点。
+//
+// 多语言：所有文案（aria / legend / 格子 title / 月份刻度）走 i18n
+// 字典（t.heat.*）。月份刻度由 activity.monthLabels 提供月份数字，
+// zh 用「{n}月」模板，en 用 MONTHS_EN 缩写——数据层语言中立。
 // ============================================================
 
 import type { Activity } from '../lib/activity';
+import { ui, MONTHS_EN, type Lang } from '../i18n/ui';
 
 interface Props {
+  /** 站点语言：决定刻度 / aria / legend 的文案列 */
+  lang: Lang;
   /** buildActivity() 的产出 */
   activity: Activity;
 }
 
-const { activity } = Astro.props;
+const { lang, activity } = Astro.props;
+const t = ui[lang];
 
-/** 星期刻度：7 行中只标 一/三/五/日，避免拥挤（与 GitHub 标 一/三/五 同理） */
-const dayTicks = ['一', '', '三', '', '五', '', '日'];
+/**
+ * 占位符替换：字典模板里的 {days} / {total} / {date} / {count}
+ * 按传入的键值对逐个换成实际值（轻量实现，避免引入模板引擎）。
+ */
+function fill(tpl: string, vars: Record<string, string | number>): string {
+  return Object.entries(vars).reduce(
+    (acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)),
+    tpl,
+  );
+}
+
+/** 星期刻度：7 行中只标 一/三/五/日（en 为 M/W/F/S），避免拥挤（与 GitHub 同理） */
+const dayTicks = t.heat.dayTicks;
+
+/** 月份刻度文案：zh「9月」/ en「Sep」 */
+function monthLabel(month: number): string {
+  return lang === 'zh'
+    ? t.month.zh.replace('{n}', String(month))
+    : (MONTHS_EN[month - 1] ?? String(month));
+}
 ---
 
-<figure class="heatmap" aria-label={`写作活动热力图：近一年活跃 ${activity.activeDays} 天，共 ${activity.total} 篇`}>
+<figure class="heatmap" aria-label={fill(t.heat.figAria, { days: activity.activeDays, total: activity.total })}>
   {/* 月份刻度行：按列偏移绝对落位 */}
   <div class="heatmap__months" aria-hidden="true">
     {activity.monthLabels.map((m) => (
-      <span style={`grid-column:${m.col + 2}`}>{m.label}</span>
+      <span style={`grid-column:${m.col + 2}`}>{monthLabel(m.month)}</span>
     ))}
   </div>
 
   <div class="heatmap__body">
     {/* 星期刻度列 */}
     <div class="heatmap__dow" aria-hidden="true">
-      {dayTicks.map((t) => <span>{t}</span>)}
+      {dayTicks.map((d) => <span>{d}</span>)}
     </div>
 
     {/* 网格：每列一周 */}
-    <div class="heatmap__grid" role="img" aria-label={`活跃 ${activity.activeDays} 天，共 ${activity.total} 篇产出`}>
+    <div class="heatmap__grid" role="img" aria-label={fill(t.heat.gridAria, { days: activity.activeDays, total: activity.total })}>
       {activity.weeks.map((week) => (
         <div class="heatmap__col">
           {week.map((day) =>
             day ? (
               <i
                 class={`heatmap__cell l${day.level}`}
-                title={day.count > 0 ? `${day.date} · ${day.count} 篇产出` : `${day.date} · 无产出`}
+                title={day.count > 0
+                  ? fill(t.heat.cellSome, { date: day.date, count: day.count })
+                  : fill(t.heat.cellZero, { date: day.date })}
               ></i>
             ) : (
               <i class="heatmap__cell heatmap__cell--future" aria-hidden="true"></i>
@@ -55,13 +83,13 @@ const dayTicks = ['一', '', '三', '', '五', '', '日'];
   </div>
 
   <figcaption class="heatmap__legend">
-    <span>活跃 {activity.activeDays} 天 · 共 {activity.total} 篇</span>
+    <span>{fill(t.heat.legend, { days: activity.activeDays, total: activity.total })}</span>
     <span class="heatmap__scale" aria-hidden="true">
-      少
+      {t.heat.less}
       <i class="heatmap__cell l0"></i><i class="heatmap__cell l1"></i>
       <i class="heatmap__cell l2"></i><i class="heatmap__cell l3"></i>
       <i class="heatmap__cell l4"></i>
-      多
+      {t.heat.more}
     </span>
   </figcaption>
 </figure>

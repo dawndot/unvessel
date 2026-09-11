@@ -1,0 +1,154 @@
+---
+// ============================================================
+// HomeView.astro — 首页共享模板（中英两站渲染同一结构）
+// ============================================================
+// 中文壳 pages/index.astro 与英文壳 pages/en/index.astro 都只传
+// lang，数据与文案全部在模板内解决：
+//   - 文章取数走 lib/posts.ts 的 getDisplayPosts（双语配对 + 回退），
+//     英文站「最新文章」里无译文的条目自动回退中文稿并由 PostRow 标注；
+//   - 界面文案经 ui[lang] 字典列；
+//   - 所有站内链接经 localePath 加语言前缀。
+// 结构（沿用 v2 概念稿的单页节奏）：
+// Hero（不器巨字 + 竖排 slogan）→ 无缝横滚 → 精选 → 最新文章 → 宣言。
+// 页脚与全局骨架在 Base.astro。
+// ============================================================
+
+import Base from '../layouts/Base.astro';
+import PostRow from '../components/PostRow.astro';
+// 数据层：展示列表（双语配对）与档案号表（uid 键，跨语言一致）
+import { getDisplayPosts, getChronoNos } from '../lib/posts';
+// 文章短链 uid 取值（与路由 / RSS / 计数同源，见 lib/utils.ts）
+import { postUid } from '../lib/utils';
+// 文案字典与语言路径工具
+import { ui, localePath, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言（壳里写死：中文壳 'zh' / 英文壳 'en'）；迁移过渡期缺省 zh */
+  lang?: Lang;
+}
+
+const { lang = 'zh' } = Astro.props;
+const t = ui[lang];
+
+// 展示列表（置顶优先 + 日期倒序；英文站缺译文条目回退中文稿）
+const allPosts = await getDisplayPosts(lang);
+const latest = allPosts.slice(0, 5);
+// 档案号：按纯时间序编号（001 = 最旧），置顶只影响显示位次、不改变编号，
+// 避免置顶的老文顶到最上却挂着最大的号。key 用 uid——中英两站同文同号。
+const chronoNo = await getChronoNos();
+// 精选：frontmatter featured: true 的文章（编辑意志钉选，最多 2 篇大卡）
+const featured = allPosts.filter((p) => p.data.featured).slice(0, 2);
+const count = String(allPosts.length).padStart(3, '0');
+
+/** 横滚带内容：直接取字典列（en 列由英文文案替换，结构不变） */
+const marquee = t.home.marquee;
+---
+
+<Base lang={lang} title={t.home.title} description={t.home.desc}>
+  <!-- ===== Hero：视口级巨字 ===== -->
+  <section class="hero" aria-label={t.home.heroAria}>
+    <!-- 四角十字标：制图基准点 -->
+    <i class="cross cross--tl" aria-hidden="true">+</i>
+    <i class="cross cross--tr" aria-hidden="true">+</i>
+    <i class="cross cross--bl" aria-hidden="true">+</i>
+    <i class="cross cross--br" aria-hidden="true">+</i>
+
+    <p class="hero__kicker" data-rv style="--d:.05s">
+      <span class="kdot" aria-hidden="true"></span>
+      {t.home.heroKicker}
+    </p>
+
+    <!-- 巨字「不器」：品牌视觉核心，任何语言保持原样（aria 供读屏） -->
+    <h1 class="hero__title" aria-label={t.home.heroAria}>
+      <span class="g" data-rv style="--d:.10s"><span class="gi">不</span></span>
+      <span class="g g--hollow" data-rv style="--d:.22s"><span class="gi">器</span></span>
+    </h1>
+
+    <!-- 竖排 slogan：「不被定义」被朱砂竖线划掉 -->
+    <p class="hero__slogan" data-rv style="--d:.40s">
+      <span class="vtext">{t.home.sloganA}</span>
+      <span class="vtext vtext--strike">{t.home.sloganB}</span>
+    </p>
+
+    <div class="hero__meta" data-rv style="--d:.55s">
+      <span>{t.home.heroMeta1}</span>
+      <span>{t.home.heroMeta2}</span>
+      <span>{t.home.heroMeta3}</span>
+    </div>
+  </section>
+
+  <!-- ===== 无缝横滚带（胶片边码：等宽小字慢速循环） ===== -->
+  <section class="marquee" aria-hidden="true">
+    <div class="marquee__track">
+      {[0, 1].map(() => (
+        <div class="marquee__group">
+          {marquee.map((w) => (
+            <>
+              <span class:list={['mq', { 'mq--accent': w.accent }]}>{w.t}</span>
+              <span class="mq-sep"></span>
+            </>
+          ))}
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- ===== 精选文章：编辑钉选大卡（无 featured 文章时整区不渲染） ===== -->
+  {featured.length > 0 && (
+    <section class="featured" aria-labelledby="featured-label">
+      <div class="sec-head">
+        <p class="sec-head__label" id="featured-label">FEATURED<span>{t.home.featured}</span></p>
+        <span class="sec-head__count">/{String(featured.length).padStart(2, '0')} — {t.home.featuredSub}</span>
+      </div>
+      <div class="featured__list">
+        {featured.map((post, i) => (
+          <a
+            class:list={[
+              'featured__item',
+              post.data.cover ? 'featured__item--cover' : 'featured__item--plain',
+            ]}
+            href={localePath(lang, `/posts/${postUid(post)}/`)}
+            data-rv
+            style={`--d:${0.05 * i}s`}
+          >
+            {/* 头图大卡：图铺满整卡做底层，标题叠加在暗化渐变之上 */}
+            {post.data.cover && (
+              <span class="featured__media" aria-hidden="true">
+                <img src={post.data.cover} alt="" loading="lazy" decoding="async" />
+              </span>
+            )}
+            <span class="featured__body">
+              <span class="featured__no">F-{String(i + 1).padStart(2, '0')} — {t.home.featuredSub}</span>
+              <span class="featured__title">{post.data.title}</span>
+              <span class="featured__desc">{post.data.description}</span>
+            </span>
+            <span class="featured__arrow" aria-hidden="true">→</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <!-- ===== 最新文章：签名交互（悬停朱砂反白） ===== -->
+  <section class="works" aria-labelledby="works-label">
+    <div class="sec-head">
+      <p class="sec-head__label" id="works-label">LATEST FILES<span>{t.home.latest}</span></p>
+      <a class="sec-head__count" href={localePath(lang, '/posts/')}>/{count} — {t.home.latestAll} →</a>
+    </div>
+    <ol class="works__list">
+      {latest.map((post) => <PostRow post={post} idx={chronoNo.get(postUid(post)) ?? 1} lang={lang} />)}
+    </ol>
+  </section>
+
+  <!-- ===== 宣言（巨字「不器」不译，品牌字；前缀与引文随语言走） ===== -->
+  <section class="manifesto" aria-labelledby="manifesto-label">
+    <p class="manifesto__label" id="manifesto-label" data-rv>MANIFESTO<span>{t.home.manifesto}</span></p>
+    <p class="manifesto__l1" data-rv style="--d:.05s">
+      {t.home.manifestoL1Prefix}<span class="hollow">不器</span>
+    </p>
+    <p class="manifesto__l2" data-rv style="--d:.15s">{t.home.manifestoL2}</p>
+    <p class="manifesto__l3" data-rv style="--d:.25s">
+      {t.home.manifestoL3Prefix}<em>{t.home.manifestoL3Em}</em>。
+    </p>
+  </section>
+</Base>

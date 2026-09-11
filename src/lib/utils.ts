@@ -41,8 +41,14 @@ function shortHash(s: string): string {
  *      文件名不变则 URL 永不变——哈希输入是集合 id 而非正文）。
  * 全站所有链接生成处（列表/精选/RSS/计数）必须经此函数取值，
  * 保证路由（getStaticPaths）与各处锚点永远同源。
+ *
+ * 双语配对规则（2026-09-11 多语言改造）：
+ * 英文稿文件名为 `<中文名>.en.md`，集合 id 是 `<中文名>.en`；
+ * 哈希兜底前先剥掉 `.en` 后缀 —— 这样即使英文稿忘了显式写 uid，
+ * 也与中文稿天然配对（同 uid → 同一篇文章的两个语言版本 → 同 URL 结构）。
  * @param post posts 集合条目
  */
 export function postUid(post: { id: string; data: { uid?: string } }): string {
-  return post.data.uid ?? shortHash(post.id);
+  if (post.data.uid) return post.data.uid;
+  return shortHash(post.id.replace(/\.en$/, ''));
 }

@@ -1,12 +1,13 @@
 /* ============================================================
    main.js — 页面交互层（Astro 适配版）
    ============================================================
-   五件事，都不依赖任何库：
+   六件事，都不依赖任何库：
    1. 字体就绪后才触发 Hero 入场（避免字体交换时的跳动/FOUT）；
    2. IntersectionObserver 滚动显现（Hero 之外的 [data-rv]）；
    3. 自定义光标（仅精确指针设备：朱砂点 + 滞后圆环）；
    4. Hero 巨字鼠标视差（幅度克制在 14px 内，是「衬」不是「炫」）；
-   5. 站内搜索浮层（Pagefind 索引，Ctrl/⌘+K 唤起）。
+   5. 站内搜索浮层（Pagefind 索引，Ctrl/⌘+K 唤起）；
+   6. 明暗主题切换（翻转 html[data-theme] + 记忆 + unv:theme 事件广播）。
 
    Astro 适配说明：
    站点启用 <ClientRouter />，Base.astro 在 astro:page-load 时调用
@@ -14,8 +15,15 @@
    - 显现：每次都为新页面的 [data-rv] 重新建 IO（旧元素已随页换掉）；
    - 光标：.cursor 元素在布局中 transition:persist，只初始化一次；
    - 视差：Hero 只在首页存在，按元素记忆去重绑定；
-   - 搜索：全局监听只绑一次（事件委托，元素在回调里实时查询），
+   - 搜索 / 主题：全局监听只绑一次（事件委托，元素在回调里实时查询），
      Pagefind 实例跨页复用。
+
+   运行时多语言说明（2026-09-11 双语改造）：
+   JS 动态生成的文案（搜索状态行、复制按钮、锚点 aria、主题 aria）
+   不走构建期字典（src/i18n/ui.ts），而是自带 RT 双语表，按
+   <html data-lang> 现取——原因：main.js 是纯浏览器脚本，构建期
+   拿不到 Astro 的 lang prop；data-lang 由 Base.astro SSR 写死，
+   一页之内不会变，故无需响应语言切换事件。
    ============================================================ */
 
 import { navigate } from 'astro:transitions/client';
@@ -29,6 +37,41 @@ let pagefindLoading = false;   // Pagefind 是否正在加载（防并发重复 
 let searchSeq = 0;             // 搜索请求代际号：丢弃过期请求返回的旧结果
 let searchActive = -1;         // 当前选中的结果下标（-1 = 未选中）
 let searchInit = false;        // 搜索全局监听是否已绑定（幂等标记）
+let themeInit = false;         // 主题全局监听是否已绑定（幂等标记）
+
+/* ---------- 运行时文案表 ----------
+   与 src/i18n/ui.ts 的 key 无关（那是构建期模板用的），此处只收
+   「JS 在浏览器里现造的字符串」。当前语言 = <html data-lang>。
+   注意：键改动时需同步 SearchModal.astro 的静态初始态与
+   ui.ts 对应条目，三处语义必须一致（维护规范见 docs/AI-OPS.md）。 */
+const RT = {
+  zh: {
+    searchHint: '输入关键词，检索全部文章',
+    searchUnavailable: '索引不可用 — 请先 npm run build 并 preview',
+    searchEmpty: '渊中无此物 — 换个关键词试试',
+    copy: '复制',
+    copied: '已复制',
+    copyFail: '复制失败',
+    anchorAria: '链接到「{t}」一节',
+    themeToLight: '切换到亮色',
+    themeToDark: '切换到暗色',
+  },
+  en: {
+    searchHint: 'Type to search all posts',
+    searchUnavailable: 'Index unavailable — run "npm run build" and preview first',
+    searchEmpty: 'Nothing in the abyss — try another keyword',
+    copy: 'Copy',
+    copied: 'Copied',
+    copyFail: 'Copy failed',
+    anchorAria: 'Link to section "{t}"',
+    themeToLight: 'Switch to light',
+    themeToDark: 'Switch to dark',
+  },
+};
+/** 运行时文案：按当前页 <html data-lang> 取列（未知值兜底中文主站） */
+function rt() {
+  return document.documentElement.dataset.lang === 'en' ? RT.en : RT.zh;
+}
 
 /* ---------- 1. 字体就绪 → Hero 入场 ----------
    CSS 里 Hero 的 [data-rv] 等待 body.is-live；
@@ -214,12 +257,12 @@ async function runSearch(query) {
   const seq = ++searchSeq;
 
   if (!query.trim()) {
-    renderSearchNote(list, '输入关键词，检索全部文章');
+    renderSearchNote(list, rt().searchHint);
     return;
   }
   if (!pagefind) {
     // ensurePagefind 失败后的输入会走到这里：dev 环境的预期表现
-    renderSearchNote(list, '索引不可用 — 请先 npm run build 并 preview');
+    renderSearchNote(list, rt().searchUnavailable);
     return;
   }
 
@@ -228,7 +271,7 @@ async function runSearch(query) {
   if (seq !== searchSeq) return;
 
   if (!res.results.length) {
-    renderSearchNote(list, '渊中无此物 — 换个关键词试试');
+    renderSearchNote(list, rt().searchEmpty);
     return;
   }
 
@@ -388,7 +431,8 @@ function initPostTools() {
     update(); // 首帧立即校准（含刷新后恢复滚动位的场景）
   }
 
-  /* ③ 代码块复制按钮：把 pre 包进 .codeblock 定位容器，按钮挂在右上角 */
+  /* ③ 代码块复制按钮：把 pre 包进 .codeblock 定位容器，按钮挂在右上角；
+     按钮文案走运行时表（rt()），语言随 <html data-lang> */
   prose && prose.querySelectorAll('pre').forEach((pre) => {
     if (pre.closest('.codeblock')) return; // 重复导航防御（DOM 每页全新，理论上不会中）
     const wrap = document.createElement('div');
@@ -396,15 +440,15 @@ function initPostTools() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'code-copy';
-    btn.textContent = '复制';
+    btn.textContent = rt().copy;
     btn.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(pre.innerText);
-        btn.textContent = '已复制';
+        btn.textContent = rt().copied;
       } catch {
-        btn.textContent = '复制失败'; // 剪贴板权限拒绝 / 非安全上下文
+        btn.textContent = rt().copyFail; // 剪贴板权限拒绝 / 非安全上下文
       }
-      setTimeout(() => { btn.textContent = '复制'; }, 1600);
+      setTimeout(() => { btn.textContent = rt().copy; }, 1600);
     });
     pre.replaceWith(wrap);
     wrap.appendChild(pre);
@@ -419,9 +463,80 @@ function initPostTools() {
     a.className = 'h-anchor';
     a.href = '#' + h.id;
     a.textContent = '#';
-    a.setAttribute('aria-label', '链接到「' + h.textContent + '」一节');
+    a.setAttribute('aria-label', rt().anchorAria.replace('{t}', h.textContent));
     h.appendChild(a);
   });
+}
+
+/* ---------- 6. 明暗主题切换（2026-09-11 双语改造新增） ----------
+   职责边界：Base.astro 的 is:inline 脚本已在首帧前定好 data-theme，
+   这里不做初始判定，只做三件事：
+   a. 点击 [data-theme-toggle]：翻转 data-theme + 写 localStorage('unv-theme')
+      + 派发 unv:theme 事件——Comments.astro 监听它，把主题 postMessage
+      给 giscus iframe（评论配色跟随站点）。事件契约：detail.theme = 'light'|'dark'。
+   b. astro:after-swap：ClientRouter 换页会用新文档的 <html> 属性覆盖旧值
+      （SSR 的 html 标签不带 data-theme），主题会「跳回默认」——换页完成后
+      从 localStorage 重读一次（口径与 Base.astro 内联脚本一致：
+      记忆 > 系统偏好 > 暗色），保证跨页主题连续。
+   c. syncThemeAria：按钮 aria-label 由 SSR 固定渲染「切到亮色」语境，
+      实际主题相反时要校正；换页后按钮是新节点，每次都要重校。
+   委托绑定只做一次（themeInit 标记），元素一律回调内实时查询。 */
+
+/** 应用主题：改 data-theme（CSS 换血）+ 记忆 + 广播（giscus 跟随） */
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try {
+    localStorage.setItem('unv-theme', theme);
+  } catch (e) {
+    /* 隐私模式存不进去就算了：本次会话内主题仍然生效 */
+  }
+  // 派发到 document（全站组件契约：Comments.astro / ink.js 统一在
+  // document 上监听）。注意不能换成 window.dispatchEvent——直接派发
+  // 到 window 的事件不经过 document，document 监听器收不到。
+  document.dispatchEvent(new CustomEvent('unv:theme', { detail: { theme } }));
+}
+
+/** 按钮语义校正：亮色时按钮应读「切到暗色」，反之亦然 */
+function syncThemeAria() {
+  const btn = document.querySelector('[data-theme-toggle]');
+  if (!btn) return;
+  const light = document.documentElement.dataset.theme === 'light';
+  btn.setAttribute('aria-label', light ? rt().themeToDark : rt().themeToLight);
+}
+
+function initTheme() {
+  if (!themeInit) {
+    themeInit = true;
+
+    /* a. 点击切换（委托：换页后按钮是新节点，无需重绑） */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-theme-toggle]')) return;
+      const next =
+        document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+      syncThemeAria();
+    });
+
+    /* b. 换页后主题连续性兜底（见模块注释 b） */
+    document.addEventListener('astro:after-swap', () => {
+      let saved = null;
+      try {
+        saved = localStorage.getItem('unv-theme');
+      } catch (e) {
+        /* 同上：读不到走系统偏好 */
+      }
+      document.documentElement.dataset.theme =
+        saved === 'light' || saved === 'dark'
+          ? saved
+          : window.matchMedia('(prefers-color-scheme: light)').matches
+            ? 'light'
+            : 'dark';
+      syncThemeAria();
+    });
+  }
+
+  /* c. 每页（含首次加载）校正一次按钮语义 */
+  syncThemeAria();
 }
 
 /* ---------- 入口：每次页面加载（含视图过渡后）调用 ---------- */
@@ -432,5 +547,6 @@ export function initPage() {
   initCursor(reduced);
   initParallax(reduced);
   initSearch();
+  initTheme();
   initPostTools();
 }

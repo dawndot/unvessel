@@ -2,9 +2,19 @@
 // ============================================================
 // Base.astro — 全站基础布局
 // ============================================================
-// 职责：head（字体/meta/视图过渡）+ 全局骨架
+// 职责：head（字体/meta/视图过渡/主题防闪烁）+ 全局骨架
 // （流体墨画布 / 顶栏 / 页脚 / 噪点 / 自定义光标）+ 脚本装配。
 // 页面只往 <slot /> 里填各自的内容。
+//
+// 【多语言】（2026-09-11）
+// 每个页面必须传 lang（zh / en），本布局据此：
+//   - <html lang> 与 data-lang（main.js 运行时读它选字典列）；
+//   - 界面文案经 ui[lang] 取列（字典见 src/i18n/ui.ts）；
+//   - 导航与页脚链接经 localePath 加上语言前缀（en → /en/…）；
+//   - head 写入 hreflang alternate（中英互指，SEO 权重合并）；
+//   - 顶栏渲染语言切换链接（指向当前页在另一语言下的对应地址）。
+// 「界面跟语言走，内容跟稿子走」——品牌视觉（巨字「不器」、朱砂印、
+// 器皿标记）是图形而非文案，任何语言下保持原样。
 // ============================================================
 
 // ClientRouter：Astro 视图过渡（浏览器端路由），配合 transition:persist 保留墨画布
@@ -14,6 +24,15 @@ import '../styles/global.css';
 import SearchModal from '../components/SearchModal.astro';
 // 站点档案（联络 / 社交链接 / 建站日期，全站唯一数据源）
 import { PROFILE } from '../data/profile';
+// i18n 字典与路径工具（全站唯一文案与语言路径来源）
+import {
+  ui,
+  htmlLang,
+  ogLocale,
+  localePath,
+  otherLocalePath,
+  type Lang,
+} from '../i18n/ui';
 
 // —— 字体自托管（取代 fonts.loli.net CDN）——
 // @fontsource 各字重 CSS 内含按 unicode-range 切片的多个 @font-face，
@@ -29,9 +48,11 @@ import '@fontsource/noto-sans-sc/900.css'; // 中文黑体：巨字
 import '@fontsource/noto-serif-sc/900.css'; // 中文宋体：沉底「不器」/ 引用
 
 interface Props {
+  /** 页面语言（决定 <html lang>、文案字典列、链接前缀、hreflang） */
+  lang: Lang;
   /** 页面标题（<title>） */
   title: string;
-  /** 页面描述（meta description / SEO / OG） */
+  /** 页面描述（meta description / SEO / OG）；缺省用该语言的站点默认描述 */
   description?: string;
   /** OG 分享图：站点绝对路径（如 /og-default.png）或完整 URL；缺省用全站默认图 */
   ogImage?: string;
@@ -42,15 +63,18 @@ interface Props {
 }
 
 const {
+  lang,
   title,
-  description = 'unvessel / 不器 — 愿被看见，不被定义。',
+  description = ui[lang].brand.defaultDesc,
   ogImage = '/og-default.png',
   ogType = 'website',
   publishedTime,
 } = Astro.props;
 
-/** 全站品牌名（og:site_name 与 RSS alternate 共用） */
-const SITE_NAME = 'unvessel / 不器';
+/** 当前语言字典列（页面内一律 t.xxx 取文案，不散落三元判断） */
+const t = ui[lang];
+/** 另一语言（hreflang alternate / og:locale:alternate / 语言切换链接用） */
+const other: Lang = lang === 'zh' ? 'en' : 'zh';
 
 // —— SEO 基准：canonical 与 OG 链接一律由 site 域名推导 ——
 // Astro.site 来自 astro.config.mjs（单点配置）；这样无论部署到哪个域名，
@@ -58,7 +82,7 @@ const SITE_NAME = 'unvessel / 不器';
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageURL = new URL(ogImage, Astro.site);
 
-/** 当前路径：用于顶栏导航的 aria-current 高亮 */
+/** 当前路径：导航高亮 / hreflang 互指 / 语言切换链接的共同输入 */
 const path = Astro.url.pathname;
 
 /**
@@ -67,33 +91,59 @@ const path = Astro.url.pathname;
  * 06 自留地是后加的私人板块：爱好记录 + 灵感碎片，殿后作彩蛋）。
  * 宣言不再独立成页：立场浓缩进关于页与首页尾章。
  * 页脚站点地图复用本数组——导航与页脚永远同源，不会出现一边多一边少。
+ * 标签取字典列、链接经 localePath 加语言前缀：中英两站结构自动一致。
  */
 const NAV = [
-  { no: '00', label: '首页', href: '/' },
-  { no: '01', label: '文章', href: '/posts/' },
-  { no: '02', label: '作品', href: '/works/' },
-  { no: '03', label: '相册', href: '/photos/' },
-  { no: '04', label: '日志', href: '/logs/' },
-  { no: '05', label: '关于', href: '/about/' },
-  { no: '06', label: '自留地', href: '/garden/' },
+  { no: '00', label: t.nav.home, href: localePath(lang, '/') },
+  { no: '01', label: t.nav.posts, href: localePath(lang, '/posts/') },
+  { no: '02', label: t.nav.works, href: localePath(lang, '/works/') },
+  { no: '03', label: t.nav.photos, href: localePath(lang, '/photos/') },
+  { no: '04', label: t.nav.logs, href: localePath(lang, '/logs/') },
+  { no: '05', label: t.nav.about, href: localePath(lang, '/about/') },
+  { no: '06', label: t.nav.garden, href: localePath(lang, '/garden/') },
 ];
 
 /** 判断某导航项是否为当前页（联络是 mailto，永不匹配） */
 function isCurrent(href: string): boolean {
   if (!href.startsWith('/')) return false;
-  if (href === '/') return path === '/';
+  if (href === '/') return path === '/' || path === '/en/';
   return path === href || path.startsWith(href);
 }
 ---
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang={htmlLang[lang]} data-lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
+
+    <!--
+      主题防闪烁（关键路径内联脚本）：
+      必须在首帧渲染前定下 data-theme，否则暗色用户会先看到一帧亮色。
+      优先级：localStorage 记忆 > 系统偏好 > 默认暗色（站点品牌基调）。
+      key 与 main.js 的切换逻辑共用 'unv-theme'，值只允许 light / dark。
+    -->
+    <script is:inline>
+      (function () {
+        var saved = null;
+        try {
+          saved = localStorage.getItem('unv-theme');
+        } catch (e) {
+          /* 隐私模式等存不进去就算了，走系统偏好 */
+        }
+        var theme =
+          saved === 'light' || saved === 'dark'
+            ? saved
+            : window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+
     <!-- favicon：svg 内嵌 prefers-color-scheme 自适应深浅标签条；
          png 兜底（Safari 等不认 svg favicon 的浏览器）兼 iOS 主屏图标 -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -101,26 +151,59 @@ function isCurrent(href: string): boolean {
     <link rel="apple-touch-icon" href="/favicon.png" />
 
     <!--
-      SEO：canonical 指向正式域名下的当前页，
+      SEO：canonical 指向正式域名下的当前页（含语言前缀），
       避免带查询参数的镜像 URL 稀释搜索权重。
     -->
     <link rel="canonical" href={canonicalURL} />
 
     <!--
+      hreflang 互指：告诉搜索引擎同一页面的另外语言版本（URL 结构严格
+      一一对应，见 src/i18n/ui.ts 的 otherLocalePath）。sitemap 集成也会
+      产出 hreflang，这里显式声明是给未进 sitemap 的边角页兜底。
+      x-default 指向站点根（默认语言 = 中文首页）。
+    -->
+    <link
+      rel="alternate"
+      hreflang={htmlLang.zh}
+      href={new URL(otherLocalePath('zh', path), Astro.site)}
+    />
+    <link
+      rel="alternate"
+      hreflang={htmlLang.en}
+      href={new URL(otherLocalePath('en', path), Astro.site)}
+    />
+    <link rel="alternate" hreflang="x-default" href={new URL('/', Astro.site)} />
+
+    <!--
       站点发现入口：
       - sitemap：@astrojs/sitemap 产出的索引（robots.txt 同步指向）
-      - RSS：feed.xml（页脚也有固定入口）
+      - RSS：中英双语 feed 各一条（feed.xml / en/feed.xml，构建期生成）
     -->
     <link rel="sitemap" href="/sitemap-index.xml" />
-    <link rel="alternate" type="application/rss+xml" title={SITE_NAME} href={new URL('/feed.xml', Astro.site)} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      hreflang={htmlLang[lang]}
+      title={t.brand.siteName}
+      href={new URL(localePath(lang, '/feed.xml'), Astro.site)}
+    />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      hreflang={htmlLang[other]}
+      title={ui[other].brand.siteName}
+      href={new URL(localePath(other, '/feed.xml'), Astro.site)}
+    />
 
     <!--
       Open Graph：微信 / Telegram / Discord 等转链卡片。
+      locale 跟页面语言走，并声明另一语言为 alternate；
       图片绝对地址由 site 域名推导，尺寸与 scripts/og.mjs 产物一致（1200×630）。
     -->
     <meta property="og:type" content={ogType} />
-    <meta property="og:site_name" content={SITE_NAME} />
-    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content={t.brand.siteName} />
+    <meta property="og:locale" content={ogLocale[lang]} />
+    <meta property="og:locale:alternate" content={ogLocale[other]} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalURL} />
@@ -144,11 +227,11 @@ function isCurrent(href: string): boolean {
     <canvas id="ink-canvas" transition:persist="ink"></canvas>
 
     <!-- 键盘跳转：直达正文 -->
-    <a class="skip-link" href="#main">跳到主要内容</a>
+    <a class="skip-link" href="#main">{t.base.skipToContent}</a>
 
     <!-- 顶栏：品牌（器皿标记 + 双语字）/ 导航+检索功能群 / 年份水印 -->
     <header class="topbar">
-      <a class="topbar__brand" href="/">
+      <a class="topbar__brand" href={localePath(lang, '/')}>
         <!-- 器皿标记：与 favicon.svg 完全同源的路径（2026-09-10 三轮进驻顶栏，
              替换 9px 朱砂方块占位符）。viewBox 已裁到内容包围盒正方（527 442 906 906），
              fill=currentColor 随 brand 文字同色，悬停 brand 区转朱砂（见 global.css）；
@@ -164,11 +247,11 @@ function isCurrent(href: string): boolean {
         <span>UNVESSEL</span>
         <span class="topbar__zh">不器</span>
       </a>
-      <!-- 右侧功能群：导航与检索归组（2026-09-10 三轮拍板），margin-left:auto 整体推右；
-           检索以发丝分隔线挂在导航尾部，消除「孤悬最右端」的突兀感；
+      <!-- 右侧功能群：导航 / 明暗切换 / 语言切换 / 检索归组（margin-left:auto 整体推右）；
+           检索以发丝分隔线挂在功能群头部，消除「孤悬最右端」的突兀感；
            EST.2026 移出功能群、贴最右端作句号水印 -->
       <div class="topbar__end">
-        <nav class="topbar__nav" aria-label="主导航">
+        <nav class="topbar__nav" aria-label={t.base.navAria}>
           {NAV.map((item) => (
             <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
               <i>{item.no}</i>
@@ -177,10 +260,56 @@ function isCurrent(href: string): boolean {
           ))}
         </nav>
         <span class="topbar__divider" aria-hidden="true"></span>
+
+        <!--
+          明暗切换按钮（交互在 main.js）：点击在 data-theme light/dark 间翻转
+          并写入 localStorage。SSR 不知道客户端最终主题（localStorage 只在
+          浏览器可读），故默认渲染「切到亮色」语境：太阳图标 + themeToLight
+          文案；main.js 初始化与视图过渡后按实际主题校正 aria-label 与图标
+          显隐（CSS 按 html[data-theme] 切换两个 svg 的 display）。
+        -->
+        <button
+          class="topbar__theme"
+          type="button"
+          data-theme-toggle
+          aria-label={t.base.themeToLight}
+        >
+          <!-- 太阳：暗色语境下显示（点击 → 亮色） -->
+          <svg class="topbar__theme-sun" viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+            <circle cx="10" cy="10" r="3.6" stroke="currentColor" stroke-width="1.5" />
+            <g stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <path d="M10 1.6v2.1" /><path d="M10 16.3v2.1" />
+              <path d="M1.6 10h2.1" /><path d="M16.3 10h2.1" />
+              <path d="M4.1 4.1l1.5 1.5" /><path d="M14.4 14.4l1.5 1.5" />
+              <path d="M15.9 4.1l-1.5 1.5" /><path d="M5.6 14.4l-1.5 1.5" />
+            </g>
+          </svg>
+          <!-- 月亮：亮色语境下显示（点击 → 暗色） -->
+          <svg class="topbar__theme-moon" viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+            <path
+              d="M16.6 12.4A7.2 7.2 0 0 1 7.6 3.4a7.2 7.2 0 1 0 9 9z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <!--
+          语言切换：纯 <a> 链接（无 JS 也能用），指向当前页在另一语言下的
+          对应地址（otherLocalePath：/posts/abc/ ↔ /en/posts/abc/）。
+          按钮文字显示「目标语言」（中文站显 EN，英文站显 中）。
+        -->
+        <a
+          class="topbar__lang"
+          href={otherLocalePath(other, path)}
+          aria-label={t.base.langAria}
+        >{t.base.langBtn}</a>
+
         <!-- 检索按钮：SVG 描边放大镜（2026-09-10 二次调整：文本 ⌕ 字形发虚，
              透明触达区在毛玻璃底上被读成一块突兀深色方块；描边图标与顶栏
              发丝线同一语言，烟灰常驻、悬停转骨白） -->
-        <button class="topbar__search" type="button" data-search-open aria-label="站内检索（快捷键 Ctrl+K）">
+        <button class="topbar__search" type="button" data-search-open aria-label={t.base.searchAria}>
           <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
             <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" stroke-width="1.5" />
             <path d="M13 13 L17 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
@@ -203,22 +332,20 @@ function isCurrent(href: string): boolean {
       <!-- 信息层：左联络右版权，两端对齐 -->
       <div class="footer__meta">
         <div class="footer__contact">
-          <p class="footer__label">联络 / CONTACT</p>
+          <p class="footer__label">{t.base.contact}</p>
           <p class="footer__links">
             <a href={`mailto:${PROFILE.email}`}>{PROFILE.email}</a>
-            <a href={PROFILE.links.rss}>RSS</a>
+            <!-- RSS 按语言指向对应 feed（/feed.xml 或 /en/feed.xml） -->
+            <a href={localePath(lang, '/feed.xml')}>RSS</a>
             {PROFILE.links.github && <a href={PROFILE.links.github} target="_blank" rel="noopener noreferrer">GITHUB</a>}
           </p>
         </div>
-        <p class="footer__fine">
-          © 2026 UNVESSEL — BUILT WITH ASTRO<br />
-          愿被看见，不被定义
-        </p>
+        <p class="footer__fine" set:html={t.base.fine1 + '<br />' + t.base.fine2} />
       </div>
       <!-- 站点地图：横排编号字行——复用顶部 NAV 数组，加板块只改一处，页脚自动跟上；
            结构与顶栏 <i>编号</i><span>标签</span> 同构，编号语言全站一致 -->
-      <p class="footer__label">站点地图 / SITEMAP</p>
-      <nav class="footer__map" aria-label="站点地图">
+      <p class="footer__label">{t.base.sitemap}</p>
+      <nav class="footer__map" aria-label={t.base.sitemapAria}>
         {NAV.map((item) => (
           <a href={item.href}>
             <i>{item.no}</i>
@@ -226,7 +353,8 @@ function isCurrent(href: string): boolean {
           </a>
         ))}
       </nav>
-      <!-- 落款：沉底巨字 + 朱砂印同框。下半裁掉像字沉入渊里，印钤在字侧不被裁——完整收尾 -->
+      <!-- 落款：沉底巨字 + 朱砂印同框（品牌视觉，不随语言翻译）。
+           下半裁掉像字沉入渊里，印钤在字侧不被裁——完整收尾 -->
       <div class="footer__sign" aria-hidden="true">
         <p class="footer__big">不器</p>
         <span class="seal">不器</span>
@@ -241,7 +369,7 @@ function isCurrent(href: string): boolean {
     </div>
 
     <!-- 站内检索浮层：Ctrl/⌘+K 或顶栏「检索」唤起（交互在 main.js） -->
-    <SearchModal />
+    <SearchModal lang={lang} />
 
     <!-- 无 JS 降级：所有显现元素直接可见（配合 CSS .no-js 规则） -->
     <noscript>
@@ -251,8 +379,10 @@ function isCurrent(href: string): boolean {
           opacity: 1 !important;
           transform: none !important;
         }
-        /* 检索依赖 JS（Pagefind 索引 + 浮层交互）：无 JS 时隐藏入口与骨架 */
+        /* 检索与主题切换依赖 JS（Pagefind 索引 / localStorage）：
+           无 JS 时隐藏入口与骨架。语言切换是纯链接，保留可用 */
         .topbar__search,
+        .topbar__theme,
         .search {
           display: none !important;
         }

@@ -3,7 +3,7 @@
 // Comments.astro — Giscus 评论（双态组件：已点亮 / 未点亮指引）
 // ============================================================
 // 状态一（已点亮）：site.ts 的 GISCUS 四要素配置齐全时，
-// 渲染真实评论区：发丝线标签「附录 · 议论」+ giscus 挂载脚本。
+// 渲染真实评论区：发丝线标签 + giscus 挂载脚本。
 //
 // 状态二（未点亮）：配置不全时渲染「议论未点亮」指引面板——
 // 不再是构建期整体消失（旧策略），而是像相册「胶卷未装」一样
@@ -18,22 +18,49 @@
 // 2. 换页友好：inline script 随 HTML 每页重新执行，天然适配
 //    ClientRouter 换页（无需 astro:page-load 重入监听）；
 // 3. 幂等：容器打 data-ready 标记，同页重复执行不会重复注入。
+//
+// 多语言（界面跟语言走）：
+// 1. 静态文案（标签 / aria / 指引步骤）走 i18n 字典 t.comments.*；
+// 2. giscus 界面语言 data-lang = giscusLocale[lang]（zh 站中文界面、
+//    en 站英文界面——评论 iframe 内部的 UI 语言与站点语言一致）；
+// 3. giscus 主题跟随站点明暗：初始按 html[data-theme] 选主题；
+//    之后监听 main.js 派发的「unv:theme」自定义事件（detail.theme
+//    = 'dark' | 'light'，这是全站主题切换的组件契约），经 postMessage
+//    通知 giscus iframe 即时换肤，无需刷新。
 // ============================================================
 import { GISCUS, giscusEnabled } from '../config/site';
+import { ui, giscusLocale, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言：决定静态文案列与 giscus 界面语言 */
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui[lang];
 ---
 
 {
   giscusEnabled ? (
-    <section class="comments" aria-label="文章评论">
+    <section class="comments" aria-label={t.comments.sectionAria}>
       <div class="comments__rule">
-        <span class="comments__label">附录 · 议论</span>
+        <span class="comments__label">{t.comments.label}</span>
       </div>
       <div id="giscus" class="comments__mount" />
-      <script is:inline define:vars={{ GISCUS }}>
+      <script is:inline define:vars={{ GISCUS, GISCUS_LANG: giscusLocale[lang] }}>
         (function mountGiscus() {
           var mount = document.getElementById('giscus');
           if (!mount || mount.dataset.ready) return; // 容器不存在 / 已挂载：静默退出
           mount.dataset.ready = '1';
+
+          /**
+           * giscus 主题跟随站点明暗：
+           * 暗色用站点配置主题（transparent_dark，贴合纯黑画布），
+           * 亮色用 giscus 官方 light（纸面观感）。
+           */
+          function giscusTheme() {
+            return document.documentElement.dataset.theme === 'light' ? 'light' : GISCUS.theme;
+          }
 
           // 动态创建官方脚本节点并写入配置（giscus 约定：全部经 data-* 传入）
           var s = document.createElement('script');
@@ -46,32 +73,42 @@ import { GISCUS, giscusEnabled } from '../config/site';
             'data-category': GISCUS.category,
             'data-category-id': GISCUS.categoryId,
             'data-mapping': GISCUS.mapping,
-            'data-theme': GISCUS.theme,
-            'data-lang': GISCUS.lang,
+            'data-theme': giscusTheme(),
+            'data-lang': GISCUS_LANG, // 界面语言跟站点语言走（Base 已把语言写进 data-lang）
             'data-loading': 'lazy', // 滚动进视口才加载 iframe，首屏零开销
             'data-emit-metadata': '0',
           };
           for (var k in attrs) s.setAttribute(k, attrs[k]);
           mount.appendChild(s);
+
+          // 主题切换跟随：main.js 换肤时派发 unv:theme（全站组件契约），
+          // 这里转发 setConfig 给 giscus iframe，评论区内联即时换肤。
+          document.addEventListener('unv:theme', function (e) {
+            var frame = mount.querySelector('iframe.giscus-frame');
+            if (!frame || !frame.contentWindow) return; // 尚未挂载（lazy）：跳过，初始值已按当前主题
+            var theme = e.detail && e.detail.theme === 'light' ? 'light' : GISCUS.theme;
+            frame.contentWindow.postMessage(
+              { giscus: { setConfig: { theme: theme } } },
+              'https://giscus.app'
+            );
+          });
         })();
       </script>
     </section>
   ) : (
-    <section class="comments comments--unlit" aria-label="评论区尚未启用">
+    <section class="comments comments--unlit" aria-label={t.comments.unlitAria}>
       <div class="comments__rule">
-        <span class="comments__label">附录 · 议论</span>
+        <span class="comments__label">{t.comments.label}</span>
       </div>
       <div class="comments__pending">
         <p class="comments__pending-mark" aria-hidden="true">◇</p>
-        <p class="comments__pending-title">议论未点亮</p>
-        <p class="comments__pending-desc">
-          评论区基于 GitHub Discussions（giscus），当前站点尚未配置。点亮步骤：
-        </p>
+        <p class="comments__pending-title">{t.comments.unlitTitle}</p>
+        <p class="comments__pending-desc">{t.comments.unlitDesc}</p>
         <ol class="comments__pending-steps">
-          <li>GitHub 仓库 Settings → General → 开启 Discussions</li>
-          <li>到 giscus.app 生成 repoId / categoryId 四要素</li>
-          <li>填入 <code>src/config/site.ts</code> 的 GISCUS 配置</li>
-          <li>重新 build，评论区在此处亮起</li>
+          <li set:html={t.comments.step1}></li>
+          <li set:html={t.comments.step2}></li>
+          <li set:html={t.comments.step3}></li>
+          <li set:html={t.comments.step4}></li>
         </ol>
       </div>
     </section>

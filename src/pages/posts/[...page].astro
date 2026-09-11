@@ -1,110 +1,23 @@
 ---
 // ============================================================
-// posts/[...page].astro — 文章列表页（静态分页）
+// posts/[...page].astro — 文章列表页（中文壳）
 // ============================================================
-// rest 路由 + paginate()：第 1 页生成 /posts/（与旧 index.astro 同路径，
-// 外链 / RSS / 返回链接全部无感），第 2 页起生成 /posts/2/、/posts/3/…。
-// 页码组件只在总页数 > 1 时渲染——文章少的时候不出现任何分页噪音。
+// rest 路由 + paginate()：第 1 页生成 /posts/，第 2 页起 /posts/2/…
+// 数据源 = lib/posts.getDisplayPosts('zh')（双语配对 + 排序口径统一）；
+// 页头 / 列表 / 数字页码的渲染实现全在 templates/PostsListView.astro。
 // ============================================================
 
-import { getCollection } from 'astro:content';
-import Base from '../../layouts/Base.astro';
-import PostRow from '../../components/PostRow.astro';
+import PostsListView from '../../templates/PostsListView.astro';
+import { getDisplayPosts } from '../../lib/posts';
 
 export async function getStaticPaths({ paginate }) {
-  // 全部正式文章（草稿不出现在构建产物）。
-  // 排序：置顶（pinned）永远在最前，其后按发布日期倒序；
-  // 多篇置顶之间仍保持日期倒序，不打乱彼此的先后。
-  const allPosts = (await getCollection('posts', ({ data }) => !data.draft)).sort((a, b) => {
-    if (a.data.pinned !== b.data.pinned) return a.data.pinned ? -1 : 1;
-    return b.data.pubDate.valueOf() - a.data.pubDate.valueOf();
-  });
-  // 每页 10 篇：行高很大（clamp 22-40px 的巨字行），一屏读完不滚动刚好
-  return paginate(allPosts, { pageSize: 10 });
+  // 中文展示列表（置顶优先 + 日期倒序；配对口径见 lib/posts.ts）。
+  // 每页 10 篇：行高很大（clamp 22-40px 的巨字行），一屏读完不滚动刚好。
+  const posts = await getDisplayPosts('zh');
+  return paginate(posts, { pageSize: 10 });
 }
 
 const { page } = Astro.props;
-
-// 档案号需要全量文章来编号（跨页连续：001 = 最旧，不分页重启），
-// 置顶只影响显示位次、不改变编号，避免置顶的老文顶到最上却挂着最大的号。
-const allPosts = (await getCollection('posts', ({ data }) => !data.draft)).sort((a, b) => {
-  if (a.data.pinned !== b.data.pinned) return a.data.pinned ? -1 : 1;
-  return b.data.pubDate.valueOf() - a.data.pubDate.valueOf();
-});
-const chronoNo = new Map(
-  [...allPosts]
-    .sort((a, b) => a.data.pubDate.valueOf() - b.data.pubDate.valueOf())
-    .map((p, i) => [p.id, i + 1]),
-);
-const count = String(allPosts.length).padStart(3, '0');
-
-// 页码数组 [1..lastPage]，供数字页码组件直接 map
-const pages = Array.from({ length: page.lastPage }, (_, i) => i + 1);
-
-// paginate 生成的相邻页链接（/posts、/posts/2）统一补尾斜杠，
-// 与全站 /posts/<uid>/ 链接规范一致，避免构建产物出现两种形态
-const withSlash = (u) => (u ? u.replace(/\/?$/, '/') : u);
 ---
 
-<Base
-  title={page.currentPage > 1 ? `文章 · 第 ${page.currentPage} 页 — unvessel 不器` : `文章 — unvessel 不器`}
-  description="不器的全部文章，按时间倒序。"
->
-  <!-- ===== 页头 ===== -->
-  <header class="page-head">
-    <p class="page-head__kicker" data-rv>
-      <span class="kdot" aria-hidden="true"></span>
-      ARCHIVE — 全部文章
-    </p>
-    <h1 class="page-head__title" aria-label="文章">
-      <span data-rv style="--d:.08s">文</span><span class="hollow" data-rv style="--d:.18s">章</span>
-    </h1>
-    <p class="page-head__meta" data-rv style="--d:.28s">
-      <span>{count} FILES</span>
-      {page.currentPage > 1 && <span>PAGE {String(page.currentPage).padStart(2, '0')}</span>}
-      <span>UNVESSEL — 不器</span>
-    </p>
-  </header>
-
-  <!-- ===== 列表（当前页切片，编号仍取全量档案号） ===== -->
-  <section class="works" aria-label="文章列表" style="padding-top: 0;">
-    <ol class="works__list">
-      {page.data.map((post) => <PostRow post={post} idx={chronoNo.get(post.id) ?? 1} />)}
-    </ol>
-
-    <!--
-      ===== 页码组件（仅文章多到超出一页时出现） =====
-      结构：← 前翻 · 数字页码（当前页朱砂）· 后翻 →
-      与 .row 同一 mono 细字语言；单页时整块不渲染。
-    -->
-    {page.lastPage > 1 && (
-      <nav class="pager" aria-label="分页">
-        {/* 前翻：无上一页时降级为置灰箭头占位，保持两端对齐不跳动 */}
-        {page.url.prev ? (
-          <a class="pager__step" href={withSlash(page.url.prev)} aria-label="上一页">←</a>
-        ) : (
-          <span class="pager__step is-off" aria-hidden="true">←</span>
-        )}
-
-        <ul class="pager__pages">
-          {pages.map((n) => (
-            <li>
-              {n === page.currentPage ? (
-                <span class="pager__no is-current" aria-current="page">{String(n).padStart(2, '0')}</span>
-              ) : (
-                <a class="pager__no" href={n === 1 ? '/posts/' : `/posts/${n}/`}>{String(n).padStart(2, '0')}</a>
-              )}
-            </li>
-          ))}
-        </ul>
-
-        {/* 后翻：无下一页时同样置灰占位 */}
-        {page.url.next ? (
-          <a class="pager__step" href={withSlash(page.url.next)} aria-label="下一页">→</a>
-        ) : (
-          <span class="pager__step is-off" aria-hidden="true">→</span>
-        )}
-      </nav>
-    )}
-  </section>
-</Base>
+<PostsListView lang="zh" page={page} />

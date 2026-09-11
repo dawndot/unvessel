@@ -1,0 +1,109 @@
+---
+// ============================================================
+// LogsView.astro — 网站日志共享模板（站点编年史 + 写作热力图）
+// ============================================================
+// 数据源：src/content/logs/*.md（logs 集合，zod 强校验）。
+// 日志条目的标题/正文是「内容」，不译——英文站原样显示中文日志
+// （kind 标签除外：kindEn 字典列把「站点/写作/实验」映射为
+// Site / Writing / Experiment，等宽小标 SYS/WRT/EXP 两语通用）。
+// 结构：页头 → 热力图（文章+日志日期聚合）→ 时间线（倒序）。
+// 日志正文走 Astro 内容渲染（render），支持 markdown。
+// ============================================================
+
+import { getCollection, render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Heatmap from '../components/Heatmap.astro';
+import { buildActivity } from '../lib/activity';
+import { formatDate } from '../lib/utils';
+import { ui, type Lang } from '../i18n/ui';
+
+interface Props {
+  /** 站点语言（壳里写死） */
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui[lang];
+
+// 文章（非草稿）与日志（非草稿）双源
+const posts = await getCollection('posts', ({ data }) => !data.draft);
+const logs = (await getCollection('logs', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+// 热力图：文章 pubDate + 日志 date 同为「写作活动」
+const activity = buildActivity([
+  ...posts.map((p) => p.data.pubDate),
+  ...logs.map((l) => l.data.date),
+]);
+
+// 预渲染每条日志正文（markdown → HTML）
+const rendered = await Promise.all(
+  logs.map(async (entry) => ({ entry, Content: (await render(entry)).Content }))
+);
+
+/** 类型对应的等宽小标记（拉丁缩写，两语通用） */
+const kindMark: Record<string, string> = { 站点: 'SYS', 写作: 'WRT', 实验: 'EXP' };
+
+/** kind 显示名：zh 直接用原值（站点/写作/实验）；en 经 kindEn 映射，缺省回退原值 */
+function kindLabel(kind: string): string {
+  return lang === 'en' ? (t.logs.kindEn[kind] ?? kind) : kind;
+}
+---
+
+<Base lang={lang} title={t.logs.title} description={t.logs.desc}>
+  <!-- ===== 页头 ===== -->
+  <header class="page-head">
+    <p class="page-head__kicker" data-rv>
+      <span class="kdot" aria-hidden="true"></span>
+      {t.logs.kicker}
+    </p>
+    <h1 class="page-head__title" aria-label={t.logs.giantAria}>
+      {t.logs.giant.map((ch, i) => (
+        <span
+          class:list={[{ hollow: i === Math.min(1, t.logs.giant.length - 1) }]}
+          data-rv
+          style={`--d:${0.08 + 0.1 * i}s`}
+        >
+          {ch}
+        </span>
+      ))}
+    </h1>
+    <p class="page-head__meta" data-rv style="--d:.28s">
+      <span>{t.logs.metaSub}</span>
+      <span>{String(logs.length).padStart(2, '0')} ENTRIES</span>
+    </p>
+  </header>
+
+  <!-- ===== 写作热力图 ===== -->
+  <section class="logs-heat" aria-labelledby="logs-heat-label">
+    <p class="logs-heat__label" id="logs-heat-label">ACTIVITY<span>{t.logs.activity}</span></p>
+    <Heatmap lang={lang} activity={activity} />
+  </section>
+
+  <!-- ===== 时间线 ===== -->
+  <section class="timeline" aria-label={t.logs.timelineAria}>
+    {rendered.map(({ entry, Content }, i) => (
+      <article class="log-entry" data-rv>
+        <div class="log-entry__rail" aria-hidden="true">
+          <i class="log-entry__dot"></i>
+          {i < rendered.length - 1 && <span class="log-entry__line"></span>}
+        </div>
+        <div class="log-entry__body">
+          <header class="log-entry__head">
+            <time class="log-entry__date" datetime={entry.data.date.toISOString()}>
+              {formatDate(entry.data.date)}
+            </time>
+            <span class={`log-entry__kind log-entry__kind--${entry.data.kind}`}>
+              {kindMark[entry.data.kind] ?? 'LOG'} · {kindLabel(entry.data.kind)}
+            </span>
+          </header>
+          <h2 class="log-entry__title">{entry.data.title}</h2>
+          <div class="log-entry__content prose">
+            <Content />
+          </div>
+        </div>
+      </article>
+    ))}
+  </section>
+</Base>
