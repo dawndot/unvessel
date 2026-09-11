@@ -617,16 +617,12 @@ html.cursor-hover .cursor__ring {
   transform: translateX(8px);
 }
 
-/* 置顶标记（2026-09-11 重做）：不再用细框徽标压在标题前，
-   改为日期区里的弱注释——无框朱砂细字 + 「/」分隔。
-   置顶与否排位上已经说明，这里只是给「它为什么在最上」补个注脚 */
-.row__pin {
+/* 置顶标记（2026-09-11 第三版）：显性标记两版被否（标题前细框徽标 /
+   日期区朱砂字——后者夹在分类与日期之间像第三个分类），
+   最终收敛为档案号变色：置顶行的 001 转朱砂，
+   「最旧却排最前」由行首一点红解释，零新增元素 */
+.row__idx--pin {
   color: var(--accent);
-}
-.row__pin::after {
-  content: '/';
-  margin: 0 10px;
-  color: var(--smoke);
 }
 
 /* ---------- 08b 页码组件 ----------
@@ -2896,6 +2892,7 @@ a.work-card__link:hover::before {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.3em;
+  /* 默认深墨：落在宣纸底上（无 JS / WebGL 降级态）；3D 接管后由 is-live 换骨白 */
   color: rgba(7, 7, 7, 0.55);
   text-decoration: none;
   transition: color 0.3s;

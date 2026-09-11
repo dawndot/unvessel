@@ -26,19 +26,21 @@ const flag = draft ? ' [草稿]' : '';
 
 <li>
   <a class="row" href={`/posts/${postUid(post)}/`}>
-    <span class="row__idx">{String(idx).padStart(3, '0')}</span>
+    {/* 置顶表达（2026-09-11 第三版）：不走标题行（徽标压巨字太抢戏），
+        也不走日期区（朱砂字夹在分类与日期之间像第三个分类），
+        收敛为行首档案号变色——置顶行的 001 转朱砂，
+        「最旧却排最前」由行首一点红解释，零新增元素 */}
+    <span class:list={['row__idx', pinned && 'row__idx--pin']}>{String(idx).padStart(3, '0')}</span>
     <span class="row__main">
       <span class="row__title">
-        {/* 置顶不再占用标题行（2026-09-11：细框徽标压在巨字前太抢戏，
-            改为日期区里的弱化文字标——置顶本身已由排位表达，这里只是注释） */}
+        {/* 标题行只放标题（+草稿旗）：置顶标记两版试错后收敛到行首档案号，
+            见上方 row__idx 处注释 */}
         {title}{flag}
       </span>
       <span class="row__sub">{description}</span>
     </span>
     <span class="row__cat">{cat}</span>
     <span class="row__datewrap">
-      {/* 置顶标记：无框朱砂细字 + 「/」分隔，与日期同层（移动端随日期列一起隐藏） */}
-      {pinned && <span class="row__pin">置顶</span>}
       <time class="row__date" datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
     </span>
     <span class="row__arrow" aria-hidden="true">→</span>
