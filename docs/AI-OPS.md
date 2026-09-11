@@ -349,6 +349,7 @@ unv idea "待整理的念头" --draft                # 草稿态（站点不显�
 - **切换契约**：`main.js` 响应点击 → 写 `localStorage('unv-theme')` → **在 `document` 上**派发 `unv:theme`（`detail.theme`）→ `Comments.astro`（giscus）与 `ink.js`（流体墨）各自在 document 上监听跟随；
 - **事件目标铁律**：全站组件间自定义事件一律 `document.dispatchEvent` / `document.addEventListener`——直接派发到 `window` 的事件不经过 document，document 监听器收不到（踩过一次）；
 - **防闪烁**：`Base.astro` head 里的内联脚本在首帧前同步写 `data-theme`（localStorage > prefers-color-scheme > dark）。该脚本必须保持**内联 + `is:inline`**，不能挪进打包 JS——挪走必然首帧闪烁；
-- **换页保活**：`ClientRouter` 换页会丢 `<html>` 属性，`main.js` 在 `astro:after-swap` 重读 localStorage 重写 `data-theme`（已内置，勿删）；
+- **换页保活**：`ClientRouter` 换页的 swap 阶段会**先移除 `<html>` 上所有属性**再套用新文档的（SSR 输出本就不带 `data-theme`），故 `main.js` 在 `astro:after-swap` 里**必须走 `applyTheme(resolveTheme())`**——恢复 `data-theme` 的同时补发 `unv:theme`。只写 `dataset.theme` 是错的（已内置，勿改成裸赋值）；
+- **为什么必须补发事件（2026-09-11 修的 bug）**：`#ink-canvas` 是 `transition:persist` 的固定背景层，GL 上下文跨页连续、`u_light` 是持久状态；而 `ink.js` 的 `astro:after-swap` 监听注册**早于** `main.js`（`Base.astro` 里 `startInk()` 在 `initPage()` 之前），它读到的 `data-theme` 已被移除 → `undefined` → `u_light` 判成 0（暗色）。若 `main.js` 之后不广播，亮色主题下换页后整页背景会一直是黑墨（画布承担视口底色），暗色下因 `:root` 默认即暗色而被掩盖。**新增跟主题的持久层组件时，同类风险同样存在：换页恢复主题必须广播，不能只改属性**；
 - **新组件需要跟主题时**：`document.addEventListener('unv:theme', handler)` + 初始化时读一次 `document.documentElement.dataset.theme`；
 - **ink.js 新增视觉元素**：上色统一 `mix(col, target, k)`，且 target 自身 `mix(暗色, 亮色, u_light)`——暗底零回归、亮底自动向墨靠拢。

@@ -311,10 +311,15 @@ export function startInk() {
   }
 
   // 主题事件跟随（reduced / 动画两种模式都要挂）：
-  // - unv:theme：main.js 点切换按钮后派发到 document；
-  // - astro:after-swap：ClientRouter 换页会重写 html 属性，main.js 从
-  //   localStorage 兜底重设 data-theme 后，这里再读一次让画布跟上颜色。
-  //   （main.js 的监听先于本文件注册，读到的必是已修正的值。）
+  // - unv:theme：main.js 点切换按钮派发，也是换页后纠正画布的唯一通道；
+  // - astro:after-swap：ClientRouter 换页会移除再重写 html 属性
+  //   （SSR 输出不带 data-theme），本监听注册先于 main.js（Base.astro 里
+  //   startInk() 在 initPage() 之前），故这里读到的 theme 往往还是
+  //   undefined → 被判成暗色；紧接着 main.js 的 after-swap 处理器会
+  //   恢复 data-theme 并补发 unv:theme，本函数的 unv:theme 监听随即
+  //   重发 u_light 纠正（同步派发，同一任务内完成，不会渲染出暗帧）。
+  //   —— 两个事件都必须挂，缺了 unv:theme 就会在亮色换页后卡在暗色
+  //   （2026-09-11 修复的 bug，别再删这条监听）。
   document.addEventListener('unv:theme', syncTheme);
   document.addEventListener('astro:after-swap', syncTheme);
 

@@ -482,6 +482,24 @@ function initPostTools() {
       实际主题相反时要校正；换页后按钮是新节点，每次都要重校。
    委托绑定只做一次（themeInit 标记），元素一律回调内实时查询。 */
 
+/* ---------- 主题口径解析 ----------
+   与 Base.astro <head> 内联防闪脚本完全一致：localStorage 记忆 >
+   系统偏好 > 暗色（站点品牌基调）。内联脚本因必须在首帧前同步执行，
+   无法复用本函数而必然重复一份口径——两处改动必须同步。
+   使用场景：视图过渡换页后重定主题（见 initTheme 的 b 段）。 */
+function resolveTheme() {
+  let saved = null;
+  try {
+    saved = localStorage.getItem('unv-theme');
+  } catch (e) {
+    /* 隐私模式等读不到就算了，走系统偏好 */
+  }
+  if (saved === 'light' || saved === 'dark') return saved;
+  return window.matchMedia('(prefers-color-scheme: light)').matches
+    ? 'light'
+    : 'dark';
+}
+
 /** 应用主题：改 data-theme（CSS 换血）+ 记忆 + 广播（giscus 跟随） */
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -517,20 +535,17 @@ function initTheme() {
       syncThemeAria();
     });
 
-    /* b. 换页后主题连续性兜底（见模块注释 b） */
+    /* b. 换页后主题连续性兜底（见模块注释 b）——
+       必须走 applyTheme 而非只改 dataset：Astro 视图过渡在 swap 阶段会
+       先移除 <html> 上所有属性再套用新文档的（SSR 输出不带 data-theme），
+       而 #ink-canvas 是 transition:persist 的固定背景层、GL 上下文跨页
+       连续，它的 astro:after-swap 监听注册先于本文件，此刻已读到
+       undefined 并把 u_light 判成 0（暗色）——若不广播 unv:theme，
+       亮色主题下整页背景会一直是黑墨（暗色下因 :root 默认即暗色而被掩盖，
+       2026-09-11 修复）。applyTheme 里的 unv:theme 是 ink / giscus 的
+       唯一同步通道，补发后同一任务内即完成纠正，不产生暗帧。 */
     document.addEventListener('astro:after-swap', () => {
-      let saved = null;
-      try {
-        saved = localStorage.getItem('unv-theme');
-      } catch (e) {
-        /* 同上：读不到走系统偏好 */
-      }
-      document.documentElement.dataset.theme =
-        saved === 'light' || saved === 'dark'
-          ? saved
-          : window.matchMedia('(prefers-color-scheme: light)').matches
-            ? 'light'
-            : 'dark';
+      applyTheme(resolveTheme());
       syncThemeAria();
     });
   }
